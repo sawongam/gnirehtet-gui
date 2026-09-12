@@ -1,0 +1,18 @@
+[package]
+name = "gnirehtet-cli"
+version = "0.1.0"
+edition = "2018"
+license = "Apache-2.0"
+description = "Thin gnirehtet CLI over gnirehtet-adb + vendored relaylib (Phase 1)"
+publish = false
+
+[[bin]]
+name = "gnirehtet"
+path = "src/main.rs"
+
+[dependencies]
+gnirehtet-adb = { path = "../gnirehtet-adb" }
+gnirehtet-relay = { path = "../gnirehtet-relay" }
+log = "0.4"
+chrono = "0.4"
+ctrlc = { version = "3.0", features = ["termination"] }

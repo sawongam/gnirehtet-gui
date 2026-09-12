@@ -5,7 +5,16 @@ Thumbs.db
 .vscode/
 node_modules/
 dist/
+build/
+.svelte-kit/
 target/
 src-tauri/target/
+apps/desktop/src-tauri/target/
 .env
 .env.*
+
+# Upstream binaries (drop in locally / CI)
+resources/gnirehtet.apk
+apps/desktop/src-tauri/binaries/gnirehtet-*
+!apps/desktop/src-tauri/binaries/README.md
+!apps/desktop/src-tauri/binaries/.gitkeep

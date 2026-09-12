@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = [
+  "apps/desktop/src-tauri",
+  "crates/gnirehtet-adb",
+  "crates/gnirehtet-relay",
+  "crates/gnirehtet-cli",
+  # Future:
+  # "crates/gnirehtet-controller",
+]
+# Desktop MVP does NOT link relaylib in-process — GUI spawns external `gnirehtet`
+# via externalBin / PATH (see apps/desktop/docs/SIDECAR.md).
+# Phase 1 CLI may link relaylib for verb parity (`gnirehtet relay`); GUI must not.
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

@@ -1,0 +1,12 @@
+[package]
+name = "gnirehtet-adb"
+version = "0.1.0"
+edition = "2018"
+license = "Apache-2.0"
+description = "ADB client/monitor extracted from Genymobile gnirehtet (Phase 1)"
+publish = false
+
+[dependencies]
+log = "0.4"
+
+[dev-dependencies]
