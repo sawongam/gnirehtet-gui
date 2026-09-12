@@ -72,6 +72,7 @@ Emit your existing `Error` / `RelayState` / `LogLine` events from these codes; d
 | `stop_relay` | `session.stop_relay()` (or ignore `NoOwnedRelay`) |
 | `run` | `session.run(serial, &RunOptions { dns_servers, routes, port })` — **child** relay + adb start |
 | quit / window close / `teardown_owned_relay` | **`session.clear_owned_relay()`** (P0-Q1) |
+| crash poller (≤3s) | **`session.poll_owned_relay()`** → `Some(status)` clears ownership; emit `RELAY_CRASHED` |
 
 ### Quit (required for PHASE0 P0-Q1)
 

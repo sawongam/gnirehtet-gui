@@ -274,15 +274,36 @@ impl SessionController {
         Ok(())
     }
 
-    fn reap_if_exited(&mut self) {
-        let exited = match self.owned_relay.as_mut() {
-            Some(r) => matches!(r.try_wait(), Ok(Some(_))),
-            None => false,
+    /// Non-blocking poll of the session-owned relay (Desktop ≤3s crash poller).
+    ///
+    /// - `Ok(None)` — no owned relay, or child still running
+    /// - `Ok(Some(status))` — child exited; **ownership cleared** (map to `RELAY_CRASHED`)
+    /// - `Err(_)` — `try_wait` I/O failure; ownership left unchanged
+    ///
+    /// Safe to call under `Mutex<SessionController>` briefly; does not touch stdio pipes
+    /// (Desktop keeps those on its LogLine pump threads).
+    pub fn poll_owned_relay(
+        &mut self,
+    ) -> std::io::Result<Option<std::process::ExitStatus>> {
+        let Some(relay) = self.owned_relay.as_mut() else {
+            return Ok(None);
         };
-        if exited {
-            warn!(target: TAG, "Owned relay exited; clearing ownership");
-            self.owned_relay = None;
+        match relay.try_wait()? {
+            None => Ok(None),
+            Some(status) => {
+                warn!(
+                    target: TAG,
+                    "Owned relay exited (status={}); clearing ownership",
+                    status
+                );
+                self.owned_relay = None;
+                Ok(Some(status))
+            }
         }
+    }
+
+    fn reap_if_exited(&mut self) {
+        let _ = self.poll_owned_relay();
     }
 }
 
@@ -351,6 +372,48 @@ mod tests {
         c.clear_owned_relay();
         c.clear_owned_relay();
         assert!(c.stop_relay().is_err());
+    }
+
+    #[test]
+    fn poll_owned_relay_none_without_child() {
+        let mut c = SessionController::from_env();
+        assert!(c.poll_owned_relay().unwrap().is_none());
+    }
+
+    #[test]
+    fn poll_owned_relay_clears_on_exit() {
+        let dir = std::env::temp_dir().join(format!(
+            "gnirehtet-controller-poll-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let stub = dir.join("fake-gnirehtet");
+        {
+            let mut f = std::fs::File::create(&stub).unwrap();
+            writeln!(f, "#!/bin/sh\necho hi\nsleep 1\nexit 42\n").unwrap();
+        }
+        let mut perms = std::fs::metadata(&stub).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&stub, perms).unwrap();
+
+        let port = free_ephemeral_port();
+        let mut c = SessionController::new(ControllerConfig {
+            adb: AdbConfig::default(),
+            gnirehtet_path: stub,
+        });
+        let _stdio = c.start_relay_with_stdio(Some(port)).expect("start");
+        assert!(c.owns_relay());
+        // Child exits immediately after printing; wait briefly then poll.
+        std::thread::sleep(std::time::Duration::from_millis(1200));
+        let status = c
+            .poll_owned_relay()
+            .expect("poll ok")
+            .expect("should have exited");
+        assert!(!c.owns_relay());
+        assert_eq!(status.code(), Some(42));
+        assert!(c.poll_owned_relay().unwrap().is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn free_ephemeral_port() -> u16 {
