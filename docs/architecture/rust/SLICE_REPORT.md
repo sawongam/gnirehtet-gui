@@ -88,7 +88,7 @@ cargo test -p gnirehtet-cli -p gnirehtet-relay
 
 - Port probe is TOCTOU vs spawn (MVP acceptable); immediate-exit check mitigates some races.
 - `start_relay` does not parse child stderr for “Address already in use” beyond exit — pre-bind is primary signal.
-- No stdout/stderr log bridge / events yet (`LogLine` / `RelayState` remain Desktop Phase 0 concern until wired).
+- `start_relay_with_stdio` hands off pipes; Desktop owns LogLine pump (controller does not emit LogLine events).
 - `AdbMonitor` cancel **not** added (MVP / Lead greenlight — not required for quit).
 - CLI `run` still in-process relaylib; controller `run` is the child-based path for GUI.
 - Absolute `GNIREHTET_BIN` validated as file; bare `gnirehtet` on PATH validated only at spawn time.
@@ -98,7 +98,7 @@ cargo test -p gnirehtet-cli -p gnirehtet-relay
 
 1. Desktop: replace Phase 0 inline adb parsing with `gnirehtet-adb` / `SessionController` (map `adb_ux_code_hint` / `ControllerError::ux_code` to ERROR_UX).
 2. Wire quit hook → `clear_owned_relay` (PHASE0 P0-Q1 end-to-end).
-3. Optional: pipe relay child stdout/stderr into controller callbacks for `LogLine`.
+3. ~~Optional: pipe relay child stdout/stderr~~ → **done** (`start_relay_with_stdio` / `RelayStdio`); Desktop wires LogLine.
 4. Phase 2.3 later: stoppable `AdbMonitor` if autorun/GUI monitor needs cancel.
 5. Resolve APK to absolute path before child-related install flows; populate `resources/`.
 6. Lead Architect commit — **do not** commit from this agent (left unstaged).
@@ -113,3 +113,47 @@ cargo test -p gnirehtet-cli -p gnirehtet-relay
 - [x] `cargo test -p gnirehtet-adb -p gnirehtet-controller` green
 - [x] Desktop workspace members preserved; controller enabled
 - [x] Unstaged for `sawongam`
+
+---
+
+## Follow-up slice — `start_relay_with_stdio` (2026-09-12)
+
+**Goal:** Desktop can stream LogLine from the session-owned `gnirehtet relay` child without re-implementing spawn.
+
+### API
+
+```rust
+pub struct RelayStdio {
+    pub stdout: std::process::ChildStdout,
+    pub stderr: std::process::ChildStderr,
+}
+
+impl SessionController {
+    /// Inherit stdio (unchanged migrate path).
+    pub fn start_relay(&mut self, port: Option<u16>) -> Result<&RelayProcess, ControllerError>;
+
+    /// Piped stdout/stderr; session still owns pid/port for stop/clear/Drop.
+    /// Take `RelayStdio` under the mutex, then pump LogLine **outside** the lock.
+    /// Desktop owns the single LogLine pump — controller does not spawn readers.
+    pub fn start_relay_with_stdio(&mut self, port: Option<u16>) -> Result<RelayStdio, ControllerError>;
+}
+```
+
+Also: `spawn_relay` → inherit; `spawn_relay_with_stdio` → piped `(RelayProcess, RelayStdio)`. Same `PORT_IN_USE` probe before ownership. No relaylib / mio / AdbMonitor changes.
+
+### Files
+
+| Path | Change |
+|------|--------|
+| `crates/gnirehtet-controller/src/relay.rs` | `RelayStdio`, inherit vs piped spawn, stub-binary pipe test |
+| `crates/gnirehtet-controller/src/session.rs` | `start_relay_with_stdio`, shared begin/finish helpers |
+| `crates/gnirehtet-controller/src/lib.rs` | re-export `RelayStdio`, `spawn_relay_with_stdio` |
+| `docs/architecture/rust/TAURI_CONTROLLER_GLUE.md` | LogLine glue snippet + concurrency rules |
+| `docs/architecture/rust/SLICE_REPORT.md` | this note |
+
+### Tests
+
+- PORT_IN_USE still covered for both start paths (no ownership).
+- Stub `fake-gnirehtet` script: piped spawn readable + session owns then `stop_relay`.
+- Left **unstaged** for Lead Architect.
+

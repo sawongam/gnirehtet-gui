@@ -4,7 +4,7 @@ use crate::error::ControllerError;
 use log::*;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, ChildStderr, ChildStdout, Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
@@ -12,6 +12,17 @@ const TAG: &str = "RelayProcess";
 
 /// Upstream / CLI default relay listen port.
 pub const DEFAULT_RELAY_PORT: u16 = 31416;
+
+/// Piped stdout/stderr from a relay child started with `start_relay_with_stdio`.
+///
+/// **Concurrency:** take these under the `SessionController` lock, then read on
+/// Desktop threads / channels **outside** the mutex. Desktop owns the single
+/// `LogLine` pump — the controller does not spawn log-reader threads.
+#[derive(Debug)]
+pub struct RelayStdio {
+    pub stdout: ChildStdout,
+    pub stderr: ChildStderr,
+}
 
 /// Handle for a relay child this session started.
 #[derive(Debug)]
@@ -68,12 +79,37 @@ pub fn probe_relay_port(port: u16) -> Result<(), ControllerError> {
     }
 }
 
-/// Spawn `gnirehtet relay -p <port>` after a successful free-port probe.
+/// Spawn `gnirehtet relay -p <port>` with **inherited** stdio (Desktop spawn/stop-first path).
 ///
 /// Does not claim ownership for the caller — the returned `RelayProcess` is the
 /// ownership token. If the child exits immediately, returns `RelayStartFailed`
 /// and does not leave a live child.
 pub fn spawn_relay(gnirehtet_path: &Path, port: u16) -> Result<RelayProcess, ControllerError> {
+    let (relay, stdio) = spawn_relay_inner(gnirehtet_path, port, false)?;
+    debug_assert!(stdio.is_none());
+    Ok(relay)
+}
+
+/// Spawn `gnirehtet relay -p <port>` with **piped** stdout/stderr for LogLine streaming.
+///
+/// Same port probe + immediate-exit checks as [`spawn_relay`]. Callers must
+/// drain the returned pipes (or the child may block on a full pipe buffer).
+pub fn spawn_relay_with_stdio(
+    gnirehtet_path: &Path,
+    port: u16,
+) -> Result<(RelayProcess, RelayStdio), ControllerError> {
+    let (relay, stdio) = spawn_relay_inner(gnirehtet_path, port, true)?;
+    Ok((
+        relay,
+        stdio.expect("piped spawn must return RelayStdio"),
+    ))
+}
+
+fn spawn_relay_inner(
+    gnirehtet_path: &Path,
+    port: u16,
+    pipe_stdio: bool,
+) -> Result<(RelayProcess, Option<RelayStdio>), ControllerError> {
     probe_relay_port(port)?;
 
     if gnirehtet_path.is_absolute() && !gnirehtet_path.is_file() {
@@ -85,20 +121,52 @@ pub fn spawn_relay(gnirehtet_path: &Path, port: u16) -> Result<RelayProcess, Con
     let path_str = gnirehtet_path.to_string_lossy().to_string();
     info!(
         target: TAG,
-        "Spawning relay: {:?} relay -p {}",
+        "Spawning relay: {:?} relay -p {} (stdio={})",
         gnirehtet_path,
-        port
+        port,
+        if pipe_stdio { "piped" } else { "inherit" }
     );
+
+    let stdout_cfg = if pipe_stdio {
+        Stdio::piped()
+    } else {
+        Stdio::inherit()
+    };
+    let stderr_cfg = if pipe_stdio {
+        Stdio::piped()
+    } else {
+        Stdio::inherit()
+    };
 
     let mut child = Command::new(gnirehtet_path)
         .args(["relay", "-p", &port.to_string()])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stdout(stdout_cfg)
+        .stderr(stderr_cfg)
         .spawn()
         .map_err(|source| ControllerError::RelaySpawn {
             path: path_str.clone(),
             source,
         })?;
+
+    let stdio = if pipe_stdio {
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| ControllerError::RelayStartFailed {
+                port,
+                detail: "stdout pipe missing after piped spawn".into(),
+            })?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| ControllerError::RelayStartFailed {
+                port,
+                detail: "stderr pipe missing after piped spawn".into(),
+            })?;
+        Some(RelayStdio { stdout, stderr })
+    } else {
+        None
+    };
 
     // Brief settle: if bind raced or binary crashed, do not claim ownership.
     thread::sleep(Duration::from_millis(150));
@@ -117,17 +185,22 @@ pub fn spawn_relay(gnirehtet_path: &Path, port: u16) -> Result<RelayProcess, Con
         }
     }
 
-    Ok(RelayProcess {
-        child,
-        port,
-        path: gnirehtet_path.to_path_buf(),
-    })
+    Ok((
+        RelayProcess {
+            child,
+            port,
+            path: gnirehtet_path.to_path_buf(),
+        },
+        stdio,
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{BufRead, BufReader, Write};
     use std::net::TcpListener;
+    use std::os::unix::fs::PermissionsExt;
 
     #[test]
     fn probe_detects_addr_in_use() {
@@ -141,5 +214,59 @@ mod tests {
         assert_eq!(err.ux_code(), Some("PORT_IN_USE"));
         drop(listener);
         probe_relay_port(port).expect("port free after drop");
+    }
+
+    /// Stub binary that accepts `relay -p <port>` like stock gnirehtet, writes
+    /// lines, then sleeps so ownership can be claimed.
+    #[test]
+    fn spawn_with_stdio_exposes_readable_pipes() {
+        let dir = std::env::temp_dir().join(format!(
+            "gnirehtet-controller-stdio-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let stub = dir.join("fake-gnirehtet");
+        {
+            let mut f = std::fs::File::create(&stub).unwrap();
+            writeln!(
+                f,
+                "#!/bin/sh\n# args: relay -p <port>\necho 'relay-stdout-line'\necho 'relay-stderr-line' >&2\nexec sleep 30\n"
+            )
+            .unwrap();
+        }
+        let mut perms = std::fs::metadata(&stub).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&stub, perms).unwrap();
+
+        // Free ephemeral port for the pre-spawn probe (stub does not bind).
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+
+        let (relay, stdio) = spawn_relay_with_stdio(&stub, port).expect("stub spawn");
+        assert_eq!(relay.port(), port);
+        assert!(relay.pid() > 0);
+
+        let mut out = BufReader::new(stdio.stdout);
+        let mut err = BufReader::new(stdio.stderr);
+        let mut line = String::new();
+        out.read_line(&mut line).unwrap();
+        assert_eq!(line.trim(), "relay-stdout-line");
+        line.clear();
+        err.read_line(&mut line).unwrap();
+        assert_eq!(line.trim(), "relay-stderr-line");
+
+        relay.kill_and_wait().unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn spawn_with_stdio_port_in_use_before_ownership() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let err = spawn_relay_with_stdio(Path::new("gnirehtet"), port).expect_err("busy");
+        assert!(matches!(err, ControllerError::PortInUse { .. }));
+        drop(listener);
     }
 }

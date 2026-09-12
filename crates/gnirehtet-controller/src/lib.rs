@@ -8,7 +8,10 @@ pub mod relay;
 pub mod session;
 
 pub use crate::error::ControllerError;
-pub use crate::relay::{probe_relay_port, spawn_relay, RelayProcess, DEFAULT_RELAY_PORT};
+pub use crate::relay::{
+    probe_relay_port, spawn_relay, spawn_relay_with_stdio, RelayProcess, RelayStdio,
+    DEFAULT_RELAY_PORT,
+};
 pub use crate::session::{ControllerConfig, RunOptions, SessionController};
 
 // Re-export common adb types so Desktop can depend primarily on controller later.

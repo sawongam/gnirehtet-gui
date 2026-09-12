@@ -1,7 +1,9 @@
 //! Session-scoped controller: ADB verbs + owned relay child.
 
 use crate::error::ControllerError;
-use crate::relay::{spawn_relay, RelayProcess, DEFAULT_RELAY_PORT};
+use crate::relay::{
+    spawn_relay, spawn_relay_with_stdio, RelayProcess, RelayStdio, DEFAULT_RELAY_PORT,
+};
 use gnirehtet_adb::{AdbClient, AdbConfig, AdbDevice, AdbStatus, VpnOptions};
 use log::*;
 use std::path::{Path, PathBuf};
@@ -120,12 +122,42 @@ impl SessionController {
         Ok(self.adb.tunnel(serial, p)?)
     }
 
-    /// Spawn stock `gnirehtet relay -p <port>` as a session-owned child.
+    /// Spawn stock `gnirehtet relay -p <port>` as a session-owned child (stdio **inherited**).
     ///
     /// Port policy: explicit `port` > existing session port > `31416`.
     /// Refuses mid-session listen-port hot-swap while a relay is owned.
     /// Probes bind first — `PORT_IN_USE` means no ownership claimed.
+    ///
+    /// For piped stdout/stderr + Desktop `LogLine` streaming, use
+    /// [`Self::start_relay_with_stdio`] instead.
     pub fn start_relay(&mut self, port: Option<u16>) -> Result<&RelayProcess, ControllerError> {
+        let listen = self.begin_relay_start(port)?;
+        let relay = spawn_relay(&self.gnirehtet_path, listen)?;
+        self.finish_relay_start(relay);
+        Ok(self.owned_relay.as_ref().unwrap())
+    }
+
+    /// Like [`Self::start_relay`], but pipes stdout/stderr and returns readers.
+    ///
+    /// Session still tracks ownership/pid/port for `stop_relay` /
+    /// `clear_owned_relay` / `Drop`.
+    ///
+    /// **Concurrency (Desktop):** call under `Mutex<SessionController>`, move the
+    /// returned [`RelayStdio`] out of the lock, then pump lines on Desktop threads
+    /// / channels. Desktop owns the single `LogLine` pump — this method does
+    /// **not** spawn reader threads.
+    pub fn start_relay_with_stdio(
+        &mut self,
+        port: Option<u16>,
+    ) -> Result<RelayStdio, ControllerError> {
+        let listen = self.begin_relay_start(port)?;
+        let (relay, stdio) = spawn_relay_with_stdio(&self.gnirehtet_path, listen)?;
+        self.finish_relay_start(relay);
+        Ok(stdio)
+    }
+
+    /// Shared pre-spawn checks: reap, refuse double-start / hot-swap, resolve port.
+    fn begin_relay_start(&mut self, port: Option<u16>) -> Result<u16, ControllerError> {
         self.reap_if_exited();
 
         if self.owned_relay.is_some() {
@@ -141,11 +173,13 @@ impl SessionController {
             });
         }
 
-        let listen = port
+        Ok(port
             .or(self.session_port)
-            .unwrap_or(DEFAULT_RELAY_PORT);
+            .unwrap_or(DEFAULT_RELAY_PORT))
+    }
 
-        let relay = spawn_relay(&self.gnirehtet_path, listen)?;
+    fn finish_relay_start(&mut self, relay: RelayProcess) {
+        let listen = relay.port();
         // Freeze session port only after ownership is claimed (bind OK).
         self.session_port = Some(listen);
         info!(
@@ -155,7 +189,6 @@ impl SessionController {
             relay.port()
         );
         self.owned_relay = Some(relay);
-        Ok(self.owned_relay.as_ref().unwrap())
     }
 
     /// Kill **only** a relay this session started.
@@ -190,6 +223,7 @@ impl SessionController {
     /// One-click ≈ upstream `run`: start relay child, then adb install/tunnel/start.
     ///
     /// Child-based — does **not** call in-process relaylib.
+    /// Uses inherited-stdio [`Self::start_relay`] (not the piped LogLine path).
     pub fn run(
         &mut self,
         serial: Option<&str>,
@@ -262,7 +296,9 @@ impl Drop for SessionController {
 mod tests {
     use super::*;
     use crate::relay::probe_relay_port;
+    use std::io::{BufRead, BufReader, Write};
     use std::net::TcpListener;
+    use std::os::unix::fs::PermissionsExt;
 
     #[test]
     fn default_port_is_31416() {
@@ -294,10 +330,81 @@ mod tests {
     }
 
     #[test]
+    fn start_relay_with_stdio_port_in_use_does_not_claim_ownership() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let mut c = SessionController::new(ControllerConfig {
+            adb: AdbConfig::default(),
+            gnirehtet_path: PathBuf::from("gnirehtet"),
+        });
+        let err = c
+            .start_relay_with_stdio(Some(port))
+            .expect_err("busy port");
+        assert!(matches!(err, ControllerError::PortInUse { .. }));
+        assert!(!c.owns_relay());
+        drop(listener);
+    }
+
+    #[test]
     fn clear_owned_relay_idempotent_without_child() {
         let mut c = SessionController::from_env();
         c.clear_owned_relay();
         c.clear_owned_relay();
         assert!(c.stop_relay().is_err());
+    }
+
+    fn free_ephemeral_port() -> u16 {
+        // Bind+drop can race with parallel tests; retry until probe says free.
+        for _ in 0..32 {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+            let port = listener.local_addr().unwrap().port();
+            drop(listener);
+            if crate::relay::probe_relay_port(port).is_ok() {
+                return port;
+            }
+        }
+        panic!("could not find a free ephemeral port");
+    }
+
+    #[test]
+    fn start_relay_with_stdio_owns_and_stop_clears() {
+        let dir = std::env::temp_dir().join(format!(
+            "gnirehtet-controller-session-stdio-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let stub = dir.join("fake-gnirehtet");
+        {
+            let mut f = std::fs::File::create(&stub).unwrap();
+            writeln!(
+                f,
+                "#!/bin/sh\necho 'session-out'\necho 'session-err' >&2\nexec sleep 30\n"
+            )
+            .unwrap();
+        }
+        let mut perms = std::fs::metadata(&stub).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&stub, perms).unwrap();
+
+        let port = free_ephemeral_port();
+
+        let mut c = SessionController::new(ControllerConfig {
+            adb: AdbConfig::default(),
+            gnirehtet_path: stub,
+        });
+        let stdio = c.start_relay_with_stdio(Some(port)).expect("stdio start");
+        assert!(c.owns_relay());
+        assert_eq!(c.session_port(), Some(port));
+        assert!(c.owned_relay_pid().is_some());
+
+        let mut out = BufReader::new(stdio.stdout);
+        let mut line = String::new();
+        out.read_line(&mut line).unwrap();
+        assert_eq!(line.trim(), "session-out");
+
+        c.stop_relay().expect("stop owned");
+        assert!(!c.owns_relay());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
