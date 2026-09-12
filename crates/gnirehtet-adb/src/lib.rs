@@ -29,8 +29,8 @@ pub mod monitor;
 
 pub use crate::buffer::ByteBuffer;
 pub use crate::client::{
-    parse_adb_devices_l, AdbClient, AdbConfig, AdbDevice, AdbStatus, VpnOptions,
-    REQUIRED_APK_VERSION_CODE,
+    apk_search_candidates, parse_adb_devices_l, resolve_apk_path, AdbClient, AdbConfig,
+    AdbDevice, AdbStatus, VpnOptions, REQUIRED_APK_VERSION_CODE,
 };
 pub use crate::error::{
     Cmd, CommandExecutionError, ProcessIoError, ProcessStatusError, Termination,

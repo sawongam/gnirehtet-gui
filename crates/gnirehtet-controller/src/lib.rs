@@ -12,7 +12,8 @@ pub use crate::relay::{
     probe_relay_port, spawn_relay, spawn_relay_with_stdio, RelayProcess, RelayStdio,
     DEFAULT_RELAY_PORT,
 };
-pub use crate::session::{ControllerConfig, RunOptions, SessionController};
+pub use crate::session::{sidecar_search_candidates, ControllerConfig, RunOptions, SessionController};
+pub use gnirehtet_adb::{apk_search_candidates, resolve_apk_path};
 
 // Re-export common adb types so Desktop can depend primarily on controller later.
 pub use gnirehtet_adb::{

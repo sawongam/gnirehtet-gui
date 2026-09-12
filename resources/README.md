@@ -13,10 +13,11 @@ Download from the pinned Genymobile/gnirehtet release (see repo README / archite
 Example:
 
 ```bash
-# From an upstream release asset
-curl -L -o resources/gnirehtet.apk \
+# Extract gnirehtet.apk from the upstream linux64 release zip (see also scripts/phase0_lab_relay.sh)
+curl -fsSL -o /tmp/gnirehtet-rust-linux64-v2.5.1.zip \
   "https://github.com/Genymobile/gnirehtet/releases/download/v2.5.1/gnirehtet-rust-linux64-v2.5.1.zip"
-# then extract gnirehtet.apk from the zip into this directory
+unzip -p /tmp/gnirehtet-rust-linux64-v2.5.1.zip gnirehtet-rust-linux64/gnirehtet.apk \
+  > resources/gnirehtet.apk
 ```
 
 ## Resolution order (orchestrator)

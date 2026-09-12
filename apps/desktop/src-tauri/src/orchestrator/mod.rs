@@ -7,12 +7,15 @@
 //! `start_relay_with_stdio` (take under mutex, pump outside). Crash watcher polls
 //! `poll_owned_relay` every ≤500ms → `RelayState` exited + `RELAY_CRASHED` ≤3s.
 
+mod paths;
 mod types;
 
+pub use paths::{controller_config_from_env, resolved_paths};
 pub use types::*;
 
 use gnirehtet_controller::{
-    ControllerError, RelayStdio, RunOptions, SessionController, VpnOptions, DEFAULT_RELAY_PORT,
+    ControllerError, RelayStdio, SessionController, VpnOptions,
+    DEFAULT_RELAY_PORT,
 };
 use serde::Serialize;
 use std::io::{BufRead, BufReader};
@@ -78,8 +81,18 @@ pub struct OrchestratorState {
 
 impl Default for OrchestratorState {
     fn default() -> Self {
+        let cfg = controller_config_from_env();
+        let paths = resolved_paths(&cfg);
+        // Cold-start diagnostics (no GUI required): help lab / triage see drop-ins.
+        eprintln!(
+            "[orchestrator] paths: bin={} (present={}) apk={} (present={})",
+            paths.gnirehtet_bin.display(),
+            paths.bin_present,
+            paths.apk_path.display(),
+            paths.apk_present
+        );
         Self {
-            session: Mutex::new(SessionController::from_env()),
+            session: Mutex::new(SessionController::new(cfg)),
             relay_epoch: AtomicU64::new(0),
         }
     }
@@ -653,6 +666,10 @@ pub fn reset_tunnel(
         .map_err(OrchError::from_controller)
 }
 
+/// One-click ≈ upstream `run`: owned relay with stdio LogLine pump, then ADB start.
+///
+/// Uses `start_relay_with_stdio` (same pump as `start_relay`) so GUI run is not
+/// inherit-only. ADB install path surfaces `APK_MISSING` when the APK file is absent.
 #[tauri::command]
 pub fn run_session(
     app: AppHandle,
@@ -662,14 +679,9 @@ pub fn run_session(
     routes: Option<String>,
     port: Option<u16>,
 ) -> OrchResult<RelayStatePayload> {
-    let mut session = lock_session(&state)?;
     let dns = dns_servers.as_deref();
     let routes_s = routes.as_deref();
-    let opts = RunOptions {
-        dns_servers: dns,
-        routes: routes_s,
-        port,
-    };
+
     emit_log(
         &app,
         "info",
@@ -680,17 +692,91 @@ pub fn run_session(
             port
         ),
     );
-    match session.run(serial.as_deref(), &opts) {
-        Ok(()) => {
-            let payload = snapshot_relay(&session);
-            emit_relay_state(&app, payload.clone());
-            Ok(payload)
+
+    // Start (or reuse) session-owned relay with piped stdio → sole LogLine pump.
+    let maybe_pump: Option<(RelayStdio, u16, u32, u64)> = {
+        let mut session = lock_session(&state)?;
+        if session.owns_relay() {
+            let listen = session.session_port().unwrap_or(DEFAULT_RELAY_PORT);
+            if let Some(p) = port {
+                if session.session_port() != Some(p) {
+                    return Err(OrchError::from_controller(
+                        ControllerError::RelayAlreadyRunning { port: listen },
+                    ));
+                }
+            }
+            None
+        } else {
+            let listen_hint = port
+                .or_else(|| session.session_port())
+                .unwrap_or(DEFAULT_RELAY_PORT);
+            emit_relay_state(
+                &app,
+                RelayStatePayload {
+                    state: "relay_starting".into(),
+                    port: Some(listen_hint),
+                    pid: None,
+                    owned_by_session: false,
+                    message: Some("Spawning gnirehtet relay (run)".into()),
+                },
+            );
+            match session.start_relay_with_stdio(port) {
+                Ok(stdio) => {
+                    let listen_port = session.session_port().unwrap_or(listen_hint);
+                    let pid = session.owned_relay_pid().ok_or_else(|| {
+                        OrchError::coded(CODE_RELAY_START_FAILED, "relay started without pid")
+                    })?;
+                    let epoch = state.relay_epoch.fetch_add(1, Ordering::SeqCst) + 1;
+                    Some((stdio, listen_port, pid, epoch))
+                }
+                Err(e) => {
+                    let (code, message) = map_controller_err(&e);
+                    emit_error(&app, &code, message.clone());
+                    return Err(OrchError::coded(code, message));
+                }
+            }
         }
-        Err(e) => {
+    };
+
+    if let Some((stdio, listen_port, pid, epoch)) = maybe_pump {
+        emit_log(
+            &app,
+            "info",
+            "orchestrator",
+            format!("stage=run port={listen_port} pid={pid} owned=true"),
+        );
+        emit_relay_state(
+            &app,
+            RelayStatePayload {
+                state: "relay_running".into(),
+                port: Some(listen_port),
+                pid: Some(pid),
+                owned_by_session: true,
+                message: Some("Relay process started (session-owned)".into()),
+            },
+        );
+        spawn_relay_stdio_pump(app.clone(), stdio, listen_port, pid, epoch);
+    }
+
+    // ADB install / tunnel / START (APK_MISSING if helper file absent when install needed).
+    {
+        let mut session = lock_session(&state)?;
+        let listen = port
+            .or_else(|| session.session_port())
+            .unwrap_or(DEFAULT_RELAY_PORT);
+        let vpn = VpnOptions {
+            dns_servers: dns,
+            routes: routes_s,
+            port: listen,
+        };
+        if let Err(e) = session.start(serial.as_deref(), &vpn) {
             let (code, message) = map_controller_err(&e);
             emit_error(&app, &code, message.clone());
-            Err(OrchError::coded(code, message))
+            return Err(OrchError::coded(code, message));
         }
+        let payload = snapshot_relay(&session);
+        emit_relay_state(&app, payload.clone());
+        Ok(payload)
     }
 }
 

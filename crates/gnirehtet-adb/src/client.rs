@@ -99,12 +99,56 @@ fn default_adb_path() -> String {
     }
 }
 
+/// Resolve APK path: explicit later (caller) > `GNIREHTET_APK` > first existing
+/// bundled candidate > `"gnirehtet.apk"` (upstream cwd-relative default).
 fn default_apk_path() -> String {
     if let Some(env_apk) = std::env::var_os("GNIREHTET_APK") {
-        env_apk.into_string().expect("invalid GNIREHTET_APK value")
-    } else {
-        "gnirehtet.apk".to_string()
+        return env_apk
+            .into_string()
+            .expect("invalid GNIREHTET_APK value");
     }
+    for candidate in apk_search_candidates() {
+        if candidate.is_file() {
+            return candidate.to_string_lossy().into_owned();
+        }
+    }
+    "gnirehtet.apk".to_string()
+}
+
+/// Candidates for bundled / workspace APK (no settings store yet).
+pub fn apk_search_candidates() -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    out.push(PathBuf::from("resources/gnirehtet.apk"));
+    out.push(PathBuf::from("gnirehtet.apk"));
+    if let Ok(cwd) = std::env::current_dir() {
+        out.push(cwd.join("resources/gnirehtet.apk"));
+        out.push(cwd.join("gnirehtet.apk"));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            // Dev: target/debug → ../../../resources ; packaged: next to exe / resources/
+            for rel in [
+                "resources/gnirehtet.apk",
+                "../resources/gnirehtet.apk",
+                "../../resources/gnirehtet.apk",
+                "../../../resources/gnirehtet.apk",
+                "../../../../resources/gnirehtet.apk",
+            ] {
+                out.push(dir.join(rel));
+            }
+        }
+    }
+    out
+}
+
+/// Public helper: setting override > env > bundled file > default name.
+pub fn resolve_apk_path(setting: Option<&Path>) -> PathBuf {
+    if let Some(p) = setting {
+        if !p.as_os_str().is_empty() {
+            return p.to_path_buf();
+        }
+    }
+    PathBuf::from(default_apk_path())
 }
 
 /// Reusable ADB orchestration API (install / start / stop / tunnel / …).
@@ -136,6 +180,11 @@ impl AdbClient {
 
     pub fn install(&self, serial: Option<&str>) -> Result<(), CommandExecutionError> {
         info!(target: TAG, "Installing gnirehtet client...");
+        if !self.config.apk_path.is_file() {
+            return Err(CommandExecutionError::ApkMissing {
+                path: self.config.apk_path.display().to_string(),
+            });
+        }
         let apk = self
             .config
             .apk_path
@@ -484,5 +533,28 @@ deadbeef               offline transport_id:1
         assert_eq!(devices.len(), 1);
         assert_eq!(devices[0].serial, "ABC");
         assert_eq!(devices[0].state, "device");
+    }
+}
+
+#[cfg(test)]
+mod apk_path_tests {
+    use super::*;
+    use crate::error::CommandExecutionError;
+
+    #[test]
+    fn install_missing_apk_returns_apk_missing() {
+        let client = AdbClient::new(AdbConfig {
+            apk_path: PathBuf::from("/no/such/gnirehtet.apk"),
+            ..AdbConfig::default()
+        });
+        let err = client.install(None).expect_err("missing apk");
+        assert!(matches!(err, CommandExecutionError::ApkMissing { .. }));
+        assert_eq!(err.adb_ux_code_hint(), Some("APK_MISSING"));
+    }
+
+    #[test]
+    fn resolve_apk_path_honors_setting() {
+        let p = PathBuf::from("/custom/setting.apk");
+        assert_eq!(resolve_apk_path(Some(&p)), p);
     }
 }

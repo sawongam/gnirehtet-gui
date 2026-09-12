@@ -29,10 +29,83 @@ impl Default for ControllerConfig {
 
 fn default_gnirehtet_path() -> PathBuf {
     if let Some(p) = std::env::var_os("GNIREHTET_BIN") {
-        PathBuf::from(p)
-    } else {
-        PathBuf::from("gnirehtet")
+        return PathBuf::from(p);
     }
+    for candidate in sidecar_search_candidates() {
+        if candidate.is_file() {
+            return candidate;
+        }
+    }
+    PathBuf::from("gnirehtet")
+}
+
+/// Dev / CI drop-in locations for the stock `gnirehtet` binary (see SIDECAR.md).
+pub fn sidecar_search_candidates() -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    let mut names: Vec<String> = Vec::new();
+    if let Some(t) = host_target_triple() {
+        #[cfg(windows)]
+        names.push(format!("gnirehtet-{}.exe", t));
+        names.push(format!("gnirehtet-{}", t));
+    }
+    #[cfg(windows)]
+    names.push("gnirehtet.exe".into());
+    names.push("gnirehtet".into());
+
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    dirs.push(PathBuf::from("apps/desktop/src-tauri/binaries"));
+    dirs.push(PathBuf::from("binaries"));
+    if let Ok(cwd) = std::env::current_dir() {
+        dirs.push(cwd.join("apps/desktop/src-tauri/binaries"));
+        dirs.push(cwd.join("binaries"));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            dirs.push(dir.to_path_buf());
+            dirs.push(dir.join("binaries"));
+            dirs.push(dir.join("../binaries"));
+            dirs.push(dir.join("../../binaries"));
+            dirs.push(dir.join("../../../apps/desktop/src-tauri/binaries"));
+            dirs.push(dir.join("../../../../apps/desktop/src-tauri/binaries"));
+        }
+    }
+
+    for dir in dirs {
+        for name in &names {
+            out.push(dir.join(name));
+        }
+    }
+    out
+}
+
+/// Best-effort host triple for sidecar filename (no rustc at runtime).
+fn host_target_triple() -> Option<String> {
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    {
+        return Some("x86_64-unknown-linux-gnu".into());
+    }
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    {
+        return Some("aarch64-unknown-linux-gnu".into());
+    }
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    {
+        return Some("x86_64-apple-darwin".into());
+    }
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        return Some("aarch64-apple-darwin".into());
+    }
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    {
+        return Some("x86_64-pc-windows-msvc".into());
+    }
+    #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
+    {
+        return Some("aarch64-pc-windows-msvc".into());
+    }
+    #[allow(unreachable_code)]
+    None
 }
 
 /// Optional overrides for `run` / `start` (DNS, routes, port).
