@@ -1,0 +1,13 @@
+[package]
+name = "gnirehtet-controller"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Session-scoped gnirehtet orchestration (ADB + sidecar relay child)"
+publish = false
+
+[dependencies]
+gnirehtet-adb = { path = "../gnirehtet-adb" }
+log = "0.4"
+
+[dev-dependencies]

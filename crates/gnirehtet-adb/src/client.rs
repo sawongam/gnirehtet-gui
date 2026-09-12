@@ -72,6 +72,25 @@ impl<'a> VpnOptions<'a> {
     }
 }
 
+/// Result of `ensure_adb` — path + version line from `adb version`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdbStatus {
+    pub path: String,
+    pub version: String,
+}
+
+/// One row from `adb devices` / `adb devices -l`.
+///
+/// `state` is the raw adb state token (`device`, `unauthorized`, `offline`, …).
+/// Optional `model` / `product` come from `-l` properties when present.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdbDevice {
+    pub serial: String,
+    pub state: String,
+    pub model: Option<String>,
+    pub product: Option<String>,
+}
+
 fn default_adb_path() -> String {
     if let Some(env_adb) = std::env::var_os("ADB") {
         env_adb.into_string().expect("invalid ADB value")
@@ -286,6 +305,70 @@ impl AdbClient {
         )
     }
 
+
+    /// Start the adb server (if needed) and verify the configured `adb_path`.
+    ///
+    /// Uses real CLI: `adb start-server` then `adb version`.
+    /// Failures are `CommandExecutionError` — use `adb_ux_code_hint()` for
+    /// ERROR_UX `ADB_MISSING` / `ADB_PATH_INVALID` mapping.
+    pub fn ensure_adb(&self) -> Result<AdbStatus, CommandExecutionError> {
+        info!(target: TAG, "Ensuring adb is available...");
+        // Bring up the daemon using the configured binary (ADB env / AdbConfig).
+        self.exec_adb(None, vec!["start-server"])?;
+
+        let adb = self.adb_path_string();
+        let args = vec!["version".to_string()];
+        debug!(target: TAG, "Execute: {:?} {:?}", adb, args);
+        match process::Command::new(&adb).args(&args[..]).output() {
+            Ok(output) => {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let version = stdout
+                        .lines()
+                        .next()
+                        .unwrap_or("adb")
+                        .trim()
+                        .to_string();
+                    Ok(AdbStatus {
+                        path: adb,
+                        version,
+                    })
+                } else {
+                    let cmd = Cmd::new(adb, args);
+                    Err(ProcessStatusError::new(cmd, output.status).into())
+                }
+            }
+            Err(err) => {
+                let cmd = Cmd::new(adb, args);
+                Err(ProcessIoError::new(cmd, err).into())
+            }
+        }
+    }
+
+    /// List devices via `adb devices -l` (real adb output shape).
+    ///
+    /// Empty list is success (`NO_DEVICES` is a UI policy on an empty Vec).
+    pub fn list_devices(&self) -> Result<Vec<AdbDevice>, CommandExecutionError> {
+        let adb = self.adb_path_string();
+        let args = vec!["devices".to_string(), "-l".to_string()];
+        debug!(target: TAG, "Execute: {:?} {:?}", adb, args);
+        match process::Command::new(&adb).args(&args[..]).output() {
+            Ok(output) => {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    Ok(parse_adb_devices_l(&stdout))
+                } else {
+                    let cmd = Cmd::new(adb, args);
+                    Err(ProcessStatusError::new(cmd, output.status).into())
+                }
+            }
+            Err(err) => {
+                let cmd = Cmd::new(adb, args);
+                Err(ProcessIoError::new(cmd, err).into())
+            }
+        }
+    }
+
     pub fn create_adb_args<S: Into<String>>(
         &self,
         serial: Option<&str>,
@@ -332,5 +415,74 @@ impl AdbClient {
             .to_str()
             .expect("adb path is not valid UTF-8")
             .to_string()
+    }
+}
+
+/// Parse stdout of `adb devices` or `adb devices -l`.
+///
+/// Skips the `List of devices attached` header and blank lines.
+/// Only uses whitespace-separated columns as produced by stock adb.
+pub fn parse_adb_devices_l(stdout: &str) -> Vec<AdbDevice> {
+    let mut devices = Vec::new();
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with("List of devices") {
+            continue;
+        }
+        let mut parts = line.split_whitespace();
+        let Some(serial) = parts.next() else { continue };
+        let Some(state) = parts.next() else { continue };
+        devices.push(AdbDevice {
+            serial: serial.to_string(),
+            state: state.to_string(),
+            model: extract_adb_prop(line, "model:"),
+            product: extract_adb_prop(line, "product:"),
+        });
+    }
+    devices
+}
+
+fn extract_adb_prop(line: &str, key: &str) -> Option<String> {
+    line.split_whitespace()
+        .find_map(|tok| tok.strip_prefix(key).map(|v| v.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_devices_l_empty() {
+        let out = "List of devices attached\n\n";
+        assert!(parse_adb_devices_l(out).is_empty());
+    }
+
+    #[test]
+    fn parse_devices_l_mixed_states() {
+        let out = "\
+List of devices attached
+emulator-5554          device product:sdk_gphone model:sdk_gphone_x86 device:generic_x86
+0123456789ABCDEF       unauthorized
+deadbeef               offline transport_id:1
+";
+        let devices = parse_adb_devices_l(out);
+        assert_eq!(devices.len(), 3);
+        assert_eq!(devices[0].serial, "emulator-5554");
+        assert_eq!(devices[0].state, "device");
+        assert_eq!(devices[0].model.as_deref(), Some("sdk_gphone_x86"));
+        assert_eq!(devices[0].product.as_deref(), Some("sdk_gphone"));
+        assert_eq!(devices[1].serial, "0123456789ABCDEF");
+        assert_eq!(devices[1].state, "unauthorized");
+        assert!(devices[1].model.is_none());
+        assert_eq!(devices[2].state, "offline");
+    }
+
+    #[test]
+    fn parse_devices_without_l_props() {
+        let out = "List of devices attached\nABC\tdevice\n";
+        let devices = parse_adb_devices_l(out);
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].serial, "ABC");
+        assert_eq!(devices[0].state, "device");
     }
 }
