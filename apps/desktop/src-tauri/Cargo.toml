@@ -20,3 +20,5 @@ tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+gnirehtet-controller = { path = "../../../crates/gnirehtet-controller" }
+# Desktop MVP does NOT depend on gnirehtet-relay / relaylib — controller spawns external binary.

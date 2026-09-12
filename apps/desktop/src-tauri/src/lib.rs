@@ -15,12 +15,17 @@ pub fn run() {
             orchestrator::start_relay,
             orchestrator::stop_relay,
             orchestrator::get_relay_state,
+            orchestrator::install,
+            orchestrator::start_client,
+            orchestrator::stop_client,
+            orchestrator::reset_tunnel,
+            orchestrator::run_session,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| {
-        // P0-Q1/Q3: tear down owned relay on quit; never kill shared adb server.
+        // P0-Q1/Q3: clear_owned_relay on quit; never kill shared adb server.
         if matches!(
             event,
             RunEvent::Exit | RunEvent::ExitRequested { .. }
