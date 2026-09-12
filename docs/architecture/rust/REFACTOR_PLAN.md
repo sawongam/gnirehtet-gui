@@ -179,3 +179,13 @@ Phase 3  mio/edition/embed extras
 | 1 | GUI could call `AdbClient` without parsing argv; monitor does not import relay |
 | 2 | GUI starts/stops reverse tether via controller without linking mio; verbs match CLI |
 | 3 | Optional; no regression on packet path benchmarks / manual transfer test |
+
+---
+
+## Reconciliation note (Codebase Researcher, 2026-09-12)
+
+Independent verification in `/workspace/gnirehtet-research/REUSE_ANALYSIS.md` §0 **confirmed** all three Rust Architect boundaries. Extra actionable finding folded here:
+
+- **FACT:** `AdbMonitor::start_adb_daemon` hardcodes `"adb"` while CLI uses `get_adb_path()` / `ADB` env (`adb_monitor.rs` vs `main.rs`). **PROPOSAL:** unify on `AdbConfig::adb_path` in Phase 1 extract.
+- ByteBuffer disposition: prefer **inline/copy into `gnirehtet-adb`** over premature `gnirehtet-util` (agrees with Researcher H1 option B and Phase 1.1).
+- Android AGP/jcenter is **P0 for APK rebuilds** (Researcher TECHNICAL_DEBT) — not a Rust packet-path change; track with Android/Desktop, not Phase 1 mio work.
