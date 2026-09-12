@@ -6,7 +6,7 @@ This repository is the **product home**. Upstream gnirehtet remains a **pinned d
 
 ## Status
 
-Early architecture / planning. **Working tree is local-first for now** (GitHub push deferred). Default integration branch: `develop` (authored as `sawongam`).
+Early architecture / planning. **Working tree is local-first for now** (GitHub push deferred). Default integration branch: `dev` (authored as `sawongam`). Baseline branch: `master`.
 
 Implementation spikes next once docs stabilize.
 
