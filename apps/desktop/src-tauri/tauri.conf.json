@@ -34,9 +34,7 @@
     "resources": [
       "../../../resources/*"
     ],
-    "externalBin": [
-      "binaries/gnirehtet"
-    ]
+    "externalBin": []
   },
   "plugins": {
     "shell": {

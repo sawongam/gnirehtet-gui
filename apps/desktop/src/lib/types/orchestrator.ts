@@ -33,3 +33,9 @@ export type OrchError = {
   code: string;
   message: string;
 };
+
+export type AppError = {
+  code: string;
+  message: string;
+  serial?: string | null;
+};

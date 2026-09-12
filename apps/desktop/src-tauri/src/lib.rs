@@ -1,10 +1,11 @@
 mod orchestrator;
 
-use orchestrator::OrchestratorState;
+use orchestrator::{teardown_owned_relay, OrchestratorState};
+use tauri::{Manager, RunEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .manage(OrchestratorState::default())
@@ -15,6 +16,18 @@ pub fn run() {
             orchestrator::stop_relay,
             orchestrator::get_relay_state,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        // P0-Q1/Q3: tear down owned relay on quit; never kill shared adb server.
+        if matches!(
+            event,
+            RunEvent::Exit | RunEvent::ExitRequested { .. }
+        ) {
+            if let Some(state) = app_handle.try_state::<OrchestratorState>() {
+                teardown_owned_relay(app_handle, state.inner(), "shutdown");
+            }
+        }
+    });
 }

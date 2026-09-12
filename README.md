@@ -8,7 +8,17 @@ This repository is the **product home**. Upstream gnirehtet remains a **pinned d
 
 Early architecture / planning. **Working tree is local-first for now** (GitHub push deferred). Default integration branch: `dev` (authored as `sawongam`). Baseline branch: `master`.
 
-Implementation spikes next once docs stabilize.
+Implementation: **Phase 0 desktop scaffold** lives under `apps/desktop` (Tauri 2 + Svelte/TS).
+Rust Phase 1 crates land under `crates/` (`gnirehtet-adb`, `gnirehtet-relay`, `gnirehtet-cli`).
+The GUI does **not** link `relaylib` — it spawns stock `gnirehtet` via externalBin/PATH.
+
+```bash
+cd apps/desktop && npm install && npm run tauri dev
+# or: cargo check -p gnirehtet-desktop
+```
+
+See `apps/desktop/README.md`, `apps/desktop/docs/SIDECAR.md`, `resources/README.md`.
+
 
 ## Docs
 

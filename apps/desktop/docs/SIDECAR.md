@@ -11,32 +11,36 @@ Tauri 2 `bundle.externalBin` expects target-triple–suffixed binaries under `sr
 apps/desktop/src-tauri/binaries/gnirehtet-<target-triple>[.exe]
 ```
 
-Examples:
-
 | Platform | File |
 |----------|------|
 | Linux x86_64 | `binaries/gnirehtet-x86_64-unknown-linux-gnu` |
 | Windows x86_64 | `binaries/gnirehtet-x86_64-pc-windows-msvc.exe` |
 | macOS arm64 | `binaries/gnirehtet-aarch64-apple-darwin` |
 
-Obtain the binary from the same upstream release zip as the APK (e.g. `gnirehtet` inside `gnirehtet-rust-linux64-v2.5.1.zip`), rename with the triple suffix, and `chmod +x` on Unix.
-
-Find your triple:
+Obtain from the upstream release zip (same pin as APK: Genymobile/gnirehtet **v2.5.1** / `1eb2e58`), rename with the triple suffix, `chmod +x` on Unix.
 
 ```bash
 rustc -vV | sed -n 's/^host: //p'
 ```
 
-## Runtime resolution (Phase 0 stub)
+## Enable bundling
 
-The host-orchestrator looks for `gnirehtet` in this order:
+`tauri.conf.json` ships with `bundle.externalBin: []` so CI/`cargo check` works without the binary.
+When the sidecar is present, set:
 
-1. Bundled sidecar path (when packaged / when `binaries/` copy exists next to the app)
-2. `GNIREHTET_BIN` environment override (dev convenience)
-3. `PATH` (`which gnirehtet`)
+```json
+"externalBin": ["binaries/gnirehtet"]
+```
 
-If none are found, `start_relay` returns a clear `gnirehtet_not_found` error. CI may omit the binary; unit/smoke tests should assert the error path.
+## Runtime resolution (Phase 0)
+
+1. `GNIREHTET_BIN` env override  
+2. Packaged resource / sidecar path  
+3. `src-tauri/binaries/gnirehtet-<triple>`  
+4. `PATH`
+
+Missing binary → `RELAY_START_FAILED` (ERROR_UX). Occupied port → `PORT_IN_USE` **before** ownership. Quit tears down **owned** child only (never foreign; never adb server).
 
 ## Plugin
 
-`tauri-plugin-shell` is enabled for sidecar/shell permissions. Process supervision (spawn, pipe stdout/stderr → `LogLine`, session-scoped kill) is implemented in the Rust host-orchestrator so we only kill relays **this process started**.
+`tauri-plugin-shell` is enabled. Process supervision (pipes → `LogLine`, session-scoped kill) lives in the Rust host-orchestrator.

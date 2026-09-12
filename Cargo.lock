@@ -1459,6 +1459,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "gnirehtet-controller"
+version = "0.1.0"
+dependencies = [
+ "gnirehtet-adb",
+ "log",
+]
+
+[[package]]
 name = "gnirehtet-desktop"
 version = "0.1.0"
 dependencies = [

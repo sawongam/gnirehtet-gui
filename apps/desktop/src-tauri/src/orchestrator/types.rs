@@ -36,3 +36,12 @@ pub struct LogLine {
     pub source: String,
     pub message: String,
 }
+
+/// App `Error` event — codes must be ERROR_UX / ERROR_CODE_MAP canonical.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppError {
+    pub code: String,
+    pub message: String,
+    pub serial: Option<String>,
+}

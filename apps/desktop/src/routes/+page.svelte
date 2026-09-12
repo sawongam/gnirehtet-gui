@@ -11,6 +11,7 @@
   import type {
     AdbInfo,
     DeviceInfo,
+    AppError,
     LogLine,
     RelayStatePayload,
   } from "$lib/types/orchestrator";
@@ -27,6 +28,7 @@
   let logs = $state<LogLine[]>([]);
   let busy = $state(false);
   let actionError = $state<string | null>(null);
+  let lastAppError = $state<AppError | null>(null);
 
   const LOG_CAP = 500;
 
@@ -110,6 +112,12 @@
       unlisteners.push(
         await listen<RelayStatePayload>("RelayState", (ev) => {
           relay = ev.payload;
+        }),
+      );
+      unlisteners.push(
+        await listen<AppError>("Error", (ev) => {
+          lastAppError = ev.payload;
+          actionError = `[${ev.payload.code}] ${ev.payload.message}`;
         }),
       );
       if (!cancelled) {
