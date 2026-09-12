@@ -3,26 +3,29 @@
 //! Does **not** link `gnirehtet-relay` / relaylib. Relay child + ADB verbs live in the
 //! controller; this module maps IPC ↔ controller and emits ERROR_UX events.
 //!
-//! Child stdout/stderr → `LogLine`: deferred until controller exposes
-//! `start_relay_with_stdio` (Desktop will own the single pipe reader). For now we emit
-//! orchestrator stage `LogLine`s only.
+//! Child stdout/stderr → `LogLine`: Desktop is the **sole** reader of pipes from
+//! `start_relay_with_stdio` (take under mutex, pump outside). Crash watcher polls
+//! `poll_owned_relay` every ≤500ms → `RelayState` exited + `RELAY_CRASHED` ≤3s.
 
 mod types;
 
 pub use types::*;
 
 use gnirehtet_controller::{
-    ControllerError, RunOptions, SessionController, VpnOptions, DEFAULT_RELAY_PORT,
+    ControllerError, RelayStdio, RunOptions, SessionController, VpnOptions, DEFAULT_RELAY_PORT,
 };
 use serde::Serialize;
+use std::io::{BufRead, BufReader};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, State};
+use std::thread;
+use std::time::Duration;
+use tauri::{AppHandle, Emitter, Manager, State};
 
 /// ERROR_UX fallback when `ControllerError::ux_code()` is None.
 const CODE_INTERNAL: &str = "INTERNAL";
 const CODE_RELAY_START_FAILED: &str = "RELAY_START_FAILED";
 const CODE_STOP_FAILED: &str = "STOP_FAILED";
-#[allow(dead_code)]
 const CODE_RELAY_CRASHED: &str = "RELAY_CRASHED";
 
 #[derive(Debug, thiserror::Error)]
@@ -68,12 +71,16 @@ pub type OrchResult<T> = Result<T, OrchError>;
 
 pub struct OrchestratorState {
     pub session: Mutex<SessionController>,
+    /// Bumped on each successful start and on intentional stop/teardown so crash
+    /// watchers ignore expected exits (P0-R5).
+    relay_epoch: AtomicU64,
 }
 
 impl Default for OrchestratorState {
     fn default() -> Self {
         Self {
             session: Mutex::new(SessionController::from_env()),
+            relay_epoch: AtomicU64::new(0),
         }
     }
 }
@@ -125,6 +132,130 @@ fn emit_error(app: &AppHandle, code: &str, message: impl Into<String>) {
     );
 }
 
+/// Invalidate in-flight crash watchers before killing the owned child.
+fn bump_relay_epoch(state: &OrchestratorState) {
+    state.relay_epoch.fetch_add(1, Ordering::SeqCst);
+}
+
+/// Sole Desktop LogLine pump + crash watcher for a session-owned piped relay.
+///
+/// Readers run **outside** `Mutex<SessionController>`. No second spawn / second reader.
+fn spawn_relay_stdio_pump(
+    app: AppHandle,
+    stdio: RelayStdio,
+    port: u16,
+    pid: u32,
+    epoch: u64,
+) {
+    let RelayStdio { stdout, stderr } = stdio;
+
+    let app_out = app.clone();
+    let t_out = thread::spawn(move || {
+        for line in BufReader::new(stdout).lines().flatten() {
+            emit_log(&app_out, "info", "relay", line);
+        }
+    });
+
+    let app_err = app.clone();
+    let t_err = thread::spawn(move || {
+        for line in BufReader::new(stderr).lines().flatten() {
+            emit_log(&app_err, "warn", "relay", line);
+        }
+    });
+
+    thread::spawn(move || {
+        // P0-R5: Desktop sole poller — poll_owned_relay every 500ms (sleep outside lock).
+        // Pipe EOF join is a backup signal if poll races with teardown.
+        loop {
+            if app
+                .try_state::<OrchestratorState>()
+                .map(|s| s.relay_epoch.load(Ordering::SeqCst) != epoch)
+                .unwrap_or(true)
+            {
+                let _ = t_out.join();
+                let _ = t_err.join();
+                return;
+            }
+
+            let exited_via_poll = poll_owned_relay_exit(&app, pid);
+            let pipes_done = t_out.is_finished() && t_err.is_finished();
+            if exited_via_poll || pipes_done {
+                break;
+            }
+            thread::sleep(Duration::from_millis(500));
+        }
+
+        let _ = t_out.join();
+        let _ = t_err.join();
+
+        let Some(state) = app.try_state::<OrchestratorState>() else {
+            return;
+        };
+        if state.relay_epoch.load(Ordering::SeqCst) != epoch {
+            return;
+        }
+
+        // Confirm unexpected death for this epoch (intentional stop bumps epoch first).
+        let listen_port = {
+            let Ok(mut session) = state.session.lock() else {
+                return;
+            };
+            let listen = session.session_port().unwrap_or(port);
+            if session.owned_relay_pid() == Some(pid) {
+                // Clear zombie ownership (poll_owned_relay would have done this).
+                session.clear_owned_relay();
+            } else if session.owns_relay() {
+                // Superseded by a different owned child.
+                return;
+            }
+            // else: already cleared by poll_owned_relay — still emit crash for this epoch.
+            listen
+        };
+
+        if state.relay_epoch.load(Ordering::SeqCst) != epoch {
+            return;
+        }
+
+        let msg = format!("Relay process exited unexpectedly (pid={pid})");
+        emit_error(&app, CODE_RELAY_CRASHED, msg.clone());
+        emit_relay_state(
+            &app,
+            RelayStatePayload {
+                state: "relay_exited".into(),
+                port: Some(listen_port),
+                pid: None,
+                owned_by_session: false,
+                message: Some("RELAY_CRASHED".into()),
+            },
+        );
+        emit_log(
+            &app,
+            "error",
+            "orchestrator",
+            format!("stage=relay_crash port={listen_port} pid={pid} error_code=RELAY_CRASHED"),
+        );
+    });
+}
+
+/// Briefly lock and call `SessionController::poll_owned_relay` (no sleep under lock).
+///
+/// Returns true if the watched pid exited; ownership is already cleared by the controller.
+fn poll_owned_relay_exit(app: &AppHandle, watched_pid: u32) -> bool {
+    let Some(state) = app.try_state::<OrchestratorState>() else {
+        return false;
+    };
+    let Ok(mut session) = state.session.lock() else {
+        return false;
+    };
+    // Match watched pid before poll; stop/teardown may have cleared ownership.
+    match session.owned_relay_pid() {
+        Some(pid) if pid == watched_pid => {}
+        _ => return false,
+    }
+    // Brief lock only — no sleep under mutex. Some(status) => exited; ownership cleared.
+    matches!(session.poll_owned_relay(), Ok(Some(_)))
+}
+
 fn lock_session<'a>(
     state: &'a OrchestratorState,
 ) -> OrchResult<std::sync::MutexGuard<'a, SessionController>> {
@@ -156,6 +287,7 @@ fn snapshot_relay(session: &SessionController) -> RelayStatePayload {
 
 /// P0-Q1: tear down session-owned relay only. Never kills foreign processes or adb server.
 pub fn teardown_owned_relay(app: &AppHandle, state: &OrchestratorState, stage: &str) {
+    bump_relay_epoch(state);
     let Ok(mut session) = state.session.lock() else {
         return;
     };
@@ -235,92 +367,101 @@ pub fn start_relay(
     state: State<'_, OrchestratorState>,
     port: Option<u16>,
 ) -> OrchResult<RelayStatePayload> {
-    let mut session = lock_session(&state)?;
-    let listen_hint = port
-        .or_else(|| session.session_port())
-        .unwrap_or(DEFAULT_RELAY_PORT);
+    // Take RelayStdio under the mutex, then pump **outside** the lock (sole reader).
+    let (stdio, listen_port, pid, epoch) = {
+        let mut session = lock_session(&state)?;
+        let listen_hint = port
+            .or_else(|| session.session_port())
+            .unwrap_or(DEFAULT_RELAY_PORT);
 
+        emit_log(
+            &app,
+            "info",
+            "orchestrator",
+            format!("stage=start_relay port={listen_hint} spawning"),
+        );
+        emit_relay_state(
+            &app,
+            RelayStatePayload {
+                state: "relay_starting".into(),
+                port: Some(listen_hint),
+                pid: None,
+                owned_by_session: false,
+                message: Some("Spawning gnirehtet relay".into()),
+            },
+        );
+
+        match session.start_relay_with_stdio(port) {
+            Ok(stdio) => {
+                let listen_port = session.session_port().unwrap_or(listen_hint);
+                let pid = session.owned_relay_pid().ok_or_else(|| {
+                    OrchError::coded(CODE_RELAY_START_FAILED, "relay started without pid")
+                })?;
+                let epoch = state.relay_epoch.fetch_add(1, Ordering::SeqCst) + 1;
+                (stdio, listen_port, pid, epoch)
+            }
+            Err(e @ ControllerError::PortInUse { .. }) => {
+                let (code, message) = map_controller_err(&e);
+                debug_assert!(!session.owns_relay());
+                emit_log(
+                    &app,
+                    "error",
+                    "orchestrator",
+                    format!("stage=start_relay port={listen_hint} error_code={code} {message}"),
+                );
+                emit_error(&app, &code, message.clone());
+                emit_relay_state(
+                    &app,
+                    RelayStatePayload {
+                        state: "relay_error".into(),
+                        port: Some(listen_hint),
+                        pid: None,
+                        owned_by_session: false,
+                        message: Some(code.clone()),
+                    },
+                );
+                return Err(OrchError::coded(code, message));
+            }
+            Err(e) => {
+                let (code, message) = map_controller_err(&e);
+                let code = if code == CODE_INTERNAL {
+                    CODE_RELAY_START_FAILED.to_string()
+                } else {
+                    code
+                };
+                emit_error(&app, &code, message.clone());
+                emit_relay_state(
+                    &app,
+                    RelayStatePayload {
+                        state: "relay_error".into(),
+                        port: Some(listen_hint),
+                        pid: None,
+                        owned_by_session: false,
+                        message: Some(message.clone()),
+                    },
+                );
+                return Err(OrchError::coded(code, message));
+            }
+        }
+    }; // MutexGuard dropped — do not read pipes while holding the lock.
+
+    let payload = RelayStatePayload {
+        state: "relay_running".into(),
+        port: Some(listen_port),
+        pid: Some(pid),
+        owned_by_session: true,
+        message: Some("Relay process started (session-owned)".into()),
+    };
     emit_log(
         &app,
         "info",
         "orchestrator",
-        format!("stage=start_relay port={listen_hint} spawning"),
+        format!("stage=start_relay port={listen_port} pid={pid} owned=true"),
     );
-    emit_relay_state(
-        &app,
-        RelayStatePayload {
-            state: "relay_starting".into(),
-            port: Some(listen_hint),
-            pid: None,
-            owned_by_session: false,
-            message: Some("Spawning gnirehtet relay".into()),
-        },
-    );
+    emit_relay_state(&app, payload.clone());
 
-    match session.start_relay(port) {
-        Ok(relay) => {
-            let listen_port = relay.port();
-            let pid = relay.pid();
-            let payload = RelayStatePayload {
-                state: "relay_running".into(),
-                port: Some(listen_port),
-                pid: Some(pid),
-                owned_by_session: true,
-                message: Some("Relay process started (session-owned)".into()),
-            };
-            emit_log(
-                &app,
-                "info",
-                "orchestrator",
-                format!("stage=start_relay port={listen_port} pid={pid} owned=true"),
-            );
-            emit_relay_state(&app, payload.clone());
-            // Child stdio → LogLine: wait for start_relay_with_stdio (single Desktop reader).
-            Ok(payload)
-        }
-        Err(e @ ControllerError::PortInUse { .. }) => {
-            let (code, message) = map_controller_err(&e);
-            debug_assert!(!session.owns_relay());
-            emit_log(
-                &app,
-                "error",
-                "orchestrator",
-                format!("stage=start_relay port={listen_hint} error_code={code} {message}"),
-            );
-            emit_error(&app, &code, message.clone());
-            emit_relay_state(
-                &app,
-                RelayStatePayload {
-                    state: "relay_error".into(),
-                    port: Some(listen_hint),
-                    pid: None,
-                    owned_by_session: false,
-                    message: Some(code.clone()),
-                },
-            );
-            Err(OrchError::coded(code, message))
-        }
-        Err(e) => {
-            let (code, message) = map_controller_err(&e);
-            let code = if code == CODE_INTERNAL {
-                CODE_RELAY_START_FAILED.to_string()
-            } else {
-                code
-            };
-            emit_error(&app, &code, message.clone());
-            emit_relay_state(
-                &app,
-                RelayStatePayload {
-                    state: "relay_error".into(),
-                    port: Some(listen_hint),
-                    pid: None,
-                    owned_by_session: false,
-                    message: Some(message.clone()),
-                },
-            );
-            Err(OrchError::coded(code, message))
-        }
-    }
+    spawn_relay_stdio_pump(app, stdio, listen_port, pid, epoch);
+    Ok(payload)
 }
 
 #[tauri::command]
@@ -328,6 +469,8 @@ pub fn stop_relay(
     app: AppHandle,
     state: State<'_, OrchestratorState>,
 ) -> OrchResult<RelayStatePayload> {
+    // Invalidate crash watcher before killing so pipe EOF is not RELAY_CRASHED.
+    bump_relay_epoch(&state);
     let mut session = lock_session(&state)?;
     let port = session.session_port().unwrap_or(DEFAULT_RELAY_PORT);
 

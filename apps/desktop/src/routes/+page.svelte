@@ -158,7 +158,7 @@
     </div>
     <div class="chip">
       <span class="label">Relay</span>
-      <span class:ok={relay.state === "relay_running"} class:err={relay.state === "relay_error"}
+      <span class:ok={relay.state === "relay_running"} class:err={relay.state === "relay_error" || relay.state === "relay_exited"}
         >{relayLabel}</span
       >
       {#if relay.port}

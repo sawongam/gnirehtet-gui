@@ -20,7 +20,7 @@ pub struct DeviceInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelayStatePayload {
-    /// relay_stopped | relay_starting | relay_running | relay_error
+    /// relay_stopped | relay_starting | relay_running | relay_error | relay_exited
     pub state: String,
     pub port: Option<u16>,
     pub pid: Option<u32>,

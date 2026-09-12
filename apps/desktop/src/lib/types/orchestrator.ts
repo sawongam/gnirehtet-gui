@@ -13,7 +13,7 @@ export type DeviceInfo = {
   product?: string | null;
 };
 
-/** relay_stopped | relay_starting | relay_running | relay_error */
+/** relay_stopped | relay_starting | relay_running | relay_error | relay_exited */
 export type RelayStatePayload = {
   state: string;
   port?: number | null;
