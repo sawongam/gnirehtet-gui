@@ -32,15 +32,15 @@ Concrete checklist Desktop / Rust must pass for the **first runnable slice**. No
 
 ## 2. Sidecar spawn/stop + log stream
 
-| ID | Check | Pass | Fail |
-|----|-------|------|------|
-| P0-R1 | Spawn relay sidecar (`gnirehtet relay` or equivalent managed child) | Child starts; orchestrator records PID/port; `RelayState` can become listening/ready when bind succeeds | UI claims relay up with no process |
-| P0-R2 | Stop owned sidecar | `stop_relay` / Stop path terminates **our** child; port not left listening by our PID | Orphan child after Stop |
-| P0-R3 | Log stream | Sidecar stdout/stderr line-buffered → `LogLine` events → UI log strip appends | Logs only in terminal; UI never sees lines; or log alone flips Sharing |
-| P0-R4 | Foreign process policy | Process we did not start on :31416 is **not** killed; surface `PORT_IN_USE` / foreign relay per DESKTOP_LIFECYCLE | Quiet kill of foreign `gnirehtet` |
-| P0-R5 | Relay death UI SLA | If our owned relay exits/crashes after ownership, UI reflects Error / Relay Error with `RELAY_CRASHED` (ERROR_UX) within **≤3s** | Stale healthy/Sharing >3s |
+| ID | Check | Pass | Fail | Lab (`c0eddf0` / PHASE0_LAB_NOTES) |
+|----|-------|------|------|-------------------------------------|
+| P0-R1 | Spawn relay sidecar (`gnirehtet relay` or equivalent managed child) | Child starts; orchestrator records PID/port; `RelayState` can become listening/ready when bind succeeds | UI claims relay up with no process | **PASS** — owns :31416, PID recorded |
+| P0-R2 | Stop owned sidecar | `stop_relay` / Stop path terminates **our** child; port not left listening by our PID | Orphan child after Stop | **PASS** — stop ok, port free |
+| P0-R3 | Log stream | Sidecar stdout/stderr line-buffered → `LogLine` events → UI log strip appends | Logs only in terminal; UI never sees lines; or log alone flips Sharing | **Partial** — pipes drained / pump wired; WebView strip not labbed |
+| P0-R4 | Foreign process policy | Process we did not start on :31416 is **not** killed; surface `PORT_IN_USE` / foreign relay per DESKTOP_LIFECYCLE | Quiet kill of foreign `gnirehtet` | **TBD** — Desktop lab in flight |
+| P0-R5 | Relay death UI SLA | If our owned relay exits/crashes after ownership, UI reflects Error / Relay Error with `RELAY_CRASHED` (ERROR_UX) within **≤3s** | Stale healthy/Sharing >3s | **PASS** (headless) — `poll_owned_relay` ≤3s after SIGKILL; UI event path code-pass (`b1b67d6`) |
 
-Cross-ref: FAILURE_SCENARIOS F-R1/F-R4; TEST_MATRIX M-18/M-20.
+Cross-ref: FAILURE_SCENARIOS F-R1/F-R4; TEST_MATRIX M-18/M-20. Evidence: [PHASE0_LAB_NOTES.md](../desktop/PHASE0_LAB_NOTES.md).
 
 ---
 
@@ -134,10 +134,12 @@ QA sign-off notes for this checklist should mirror the same honesty: expectation
 
 | Gate | Owner | Result | Date | Evidence |
 |------|-------|--------|------|----------|
-| Scaffold smoke (§1) | Desktop | _TBD_ | | |
-| Sidecar + logs (§2) | Desktop | _TBD_ | | |
-| Port ownership (§3) | Desktop + QA | _TBD_ | | |
-| Quit / no orphan (§4) | Desktop + QA | _TBD_ | | |
-| Chip honesty (§6) | Desktop + QA | _TBD_ | | |
+| Scaffold smoke (§1) | Desktop | _TBD_ (no display lab) | 2026-09-12 | PHASE0_LAB_NOTES — P0-S1 not run |
+| Sidecar + logs (§2) | Desktop + QA | **Partial → near Pass** | 2026-09-12 | R1/R2/R5 **PASS**; R3 **Partial** (no WebView); R4 **TBD** |
+| Port ownership (§3) | Desktop + QA | Code-pass; lab TBD for foreign PORT_IN_USE | 2026-09-12 | Default :31416 + ownership in R1; R4/P2 foreign bind lab next |
+| Quit / no orphan (§4) | Desktop + QA | Code-pass; lab TBD (P0-Q1) | 2026-09-12 | Desktop R4/Q1 lab in flight |
+| Chip honesty (§6) | Desktop + QA | **Pass** (no Sharing claimed) | 2026-09-12 | Relay-only; Sharing N/A |
+
+**QA lab re-score (`c0eddf0`):** P0-R1/R2/R5 **PASS**; P0-R3 **Partial**; P0-R4/Q1 open. No Sharing.
 
 **Exit:** All Yes-required rows Pass or Waived-with-ticket; Sharing still not claimable without three layers.
