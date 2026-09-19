@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import {
     ensureAdb,
     listDevices,
@@ -11,6 +12,7 @@
     resetTunnel,
     runSession,
     stopClient,
+    prepareQuit,
   } from "$lib/api/orchestrator";
   import type {
     AdbInfo,
@@ -26,9 +28,11 @@
     selectedDevice,
   } from "$lib/stores/devices";
   import {
+    clearClientAccepted,
     clearSessionIntent,
     deriveSessionChip,
     initialSessionLayers,
+    markClientAccepted,
     markTunnelFailed,
     markTunnelLost,
     markTunnelOk,
@@ -41,6 +45,7 @@
     VPN_PENDING_TIMEOUT_MS,
     type SessionLayers,
   } from "$lib/stores/sessionLayers";
+  import { parseRelayClientLogLine } from "$lib/stores/relayLogProbe";
   import {
     deviceStateClass,
     deviceStateLabel,
@@ -219,6 +224,11 @@
       ].slice(-LOG_CAP);
     } catch (e) {
       actionError = errMsg(e);
+      lastAppError = {
+        code: errCode(e) ?? "INSTALL_FAILED",
+        message: errMsg(e),
+        serial: selectedSerial,
+      };
     } finally {
       busy = false;
     }
@@ -257,6 +267,11 @@
     } catch (e) {
       const code = errCode(e);
       actionError = errMsg(e);
+      lastAppError = {
+        code: code ?? "INTERNAL",
+        message: errMsg(e),
+        serial: selectedSerial,
+      };
       if (code === "TUNNEL_FAILED") {
         layers = markTunnelFailed(layers, selectedSerial);
       } else if (code === "APK_MISSING" || code === "INSTALL_FAILED" || code === "CLIENT_START_FAILED") {
@@ -342,11 +357,23 @@
       unlisteners.push(
         await listen<LogLine>("LogLine", (ev) => {
           logs = [...logs, ev.payload].slice(-LOG_CAP);
+          // HANDSHAKE_LIVENESS_MVP: owned-relay only — Tunnel chip copy, never Sharing.
+          if (ev.payload.source === "relay" && relay.ownedBySession) {
+            const probe = parseRelayClientLogLine(ev.payload.message);
+            if (probe?.kind === "connected") {
+              layers = markClientAccepted(layers, probe.clientId);
+            } else if (probe?.kind === "disconnected") {
+              layers = clearClientAccepted(layers);
+            }
+          }
         }),
       );
       unlisteners.push(
         await listen<RelayStatePayload>("RelayState", (ev) => {
           relay = ev.payload;
+          if (!ev.payload.ownedBySession) {
+            layers = clearClientAccepted(layers);
+          }
         }),
       );
       unlisteners.push(
@@ -367,8 +394,8 @@
             layers = markTunnelLost(layers);
           }
           if (ev.payload.code === "RELAY_CRASHED") {
-            // Relay layer unhealthy — do not claim VPN/Sharing.
-            layers = markVpnIdle(layers);
+            // Relay layer unhealthy — clear liveness; do not claim VPN/Sharing.
+            layers = clearClientAccepted(markVpnIdle(layers));
           }
         }),
       );
@@ -386,6 +413,32 @@
         vpnTimer = setInterval(() => {
           if (!cancelled) vpnTick = Date.now();
         }, 2000);
+        // Quit-clean: window close → stop client + clear_owned_relay + clear UI layers.
+        // Rust Exit also teardowns (epoch bump → not RELAY_CRASHED).
+        try {
+          unlisteners.push(
+            await getCurrentWindow().onCloseRequested(async (event) => {
+              event.preventDefault();
+              try {
+                await prepareQuit(selectedSerial);
+              } catch {
+                /* best-effort; Exit handler is the safety net */
+              }
+              layers = clearSessionIntent(layers);
+              busy = false;
+              stopping = false;
+              actionError = null;
+              lastAppError = null;
+              try {
+                await getCurrentWindow().destroy();
+              } catch {
+                /* already closing */
+              }
+            }),
+          );
+        } catch {
+          /* non-Tauri / check env — skip close hook */
+        }
       }
     })();
 
@@ -423,8 +476,40 @@
     return null;
   });
 
+  /** Blocking recovery codes shown in a prominent banner with CTAs (ERROR_UX). */
+  const recoveryBanner = $derived.by(() => {
+    if (adbBanner) return null;
+    const code = lastAppError?.code;
+    if (!code) return null;
+    // Dedicated banners already cover these:
+    if (
+      code === "VPN_PERMISSION_PENDING" ||
+      code === "START_TIMEOUT" ||
+      code === "TUNNEL_LOST" ||
+      code === "DEVICE_UNAUTHORIZED" ||
+      code === "DEVICE_OFFLINE"
+    ) {
+      return null;
+    }
+    const ux = errorUxFor(code);
+    if (!ux) return null;
+    if (
+      code === "APK_MISSING" ||
+      code === "INSTALL_FAILED" ||
+      code === "CLIENT_START_FAILED" ||
+      code === "RELAY_CRASHED" ||
+      code === "RELAY_START_FAILED" ||
+      code === "PORT_IN_USE" ||
+      code === "TUNNEL_FAILED" ||
+      code === "STOP_FAILED"
+    ) {
+      return ux;
+    }
+    return null;
+  });
+
   const actionBanner = $derived.by(() => {
-    if (!actionError || adbBanner) return null;
+    if (!actionError || adbBanner || recoveryBanner) return null;
     const code = lastAppError?.code;
     if (code && (code === "VPN_PERMISSION_PENDING" || code === "START_TIMEOUT" || code === "TUNNEL_LOST")) {
       return null; // dedicated banners
@@ -441,8 +526,8 @@
   <header>
     <h1>gnirehtet-gui</h1>
     <p class="sub">
-      Phase 2 — install / tunnel / run / stop for one device. Three layers;
-      never claim Sharing without handshake.
+      Phase 3 — quit-clean, ERROR_UX recovery, optional owned-relay client
+      probe. Three layers; never claim Sharing without handshake.
     </p>
   </header>
 
@@ -494,10 +579,14 @@
     <div class="layer">
       <span class="label">Tunnel</span>
       <span
-        class:ok={layers.tunnel === "ok"}
+        class:ok={layers.tunnel === "ok" || layers.clientAccepted}
         class:err={layers.tunnel === "lost" || layers.tunnel === "failed"}
-        class:muted={layers.tunnel === "unknown"}>{tunnelLabel(layers.tunnel)}</span
+        class:muted={layers.tunnel === "unknown" && !layers.clientAccepted}
+        >{tunnelLabel(layers.tunnel, layers.clientAccepted)}</span
       >
+      {#if layers.clientAccepted && layers.clientId != null}
+        <span class="muted tip">#{layers.clientId}</span>
+      {/if}
     </div>
     <div class="layer">
       <span class="label">Device VPN</span>
@@ -506,7 +595,9 @@
         class:err={layers.vpn === "error"}
         class:muted={layers.vpn === "idle"}>{vpnLabel(layers.vpn)}</span
       >
-      <span class="muted tip">Active only after handshake — not claimed</span>
+      <span class="muted tip"
+        >Pending until handshake (see HANDSHAKE_LIVENESS_MVP) — not Sharing</span
+      >
     </div>
   </section>
 
@@ -555,6 +646,38 @@
           <button type="button" class="primary" onclick={onRepairTunnel} disabled={!canAct}>
             Repair tunnel
           </button>
+          <button type="button" onclick={onStop} disabled={busy || stopping}>Stop</button>
+        {:else}
+          <button type="button" class="primary" onclick={onRun} disabled={!canAct}>Retry Run</button>
+          <button type="button" onclick={onStop} disabled={busy || stopping}>Stop</button>
+        {/if}
+      </div>
+    </div>
+  {/if}
+  {#if recoveryBanner && !adbBanner}
+    <div class="banner err recovery" role="alert">
+      <strong>[{recoveryBanner.code}] {recoveryBanner.title}</strong>
+      <p>{recoveryBanner.explanation}</p>
+      <p class="muted">{recoveryBanner.recoveryHint}</p>
+      {#if actionError}<p class="muted">{actionError}</p>{/if}
+      <div class="actions tight">
+        {#if recoveryBanner.code === "APK_MISSING"}
+          <button type="button" class="primary" onclick={onInstall} disabled={!canAct}>
+            Retry Install
+          </button>
+          <button type="button" onclick={() => refreshAll()} disabled={busy}>Refresh paths</button>
+        {:else if recoveryBanner.code === "INSTALL_FAILED"}
+          <button type="button" class="primary" onclick={onInstall} disabled={!canAct}>
+            Reinstall helper
+          </button>
+          <button type="button" onclick={onRun} disabled={!canAct}>Retry Run</button>
+        {:else if recoveryBanner.code === "TUNNEL_FAILED"}
+          <button type="button" class="primary" onclick={onRepairTunnel} disabled={!canAct}>
+            Repair tunnel
+          </button>
+          <button type="button" onclick={onRun} disabled={!canAct}>Retry Run</button>
+        {:else if recoveryBanner.code === "RELAY_CRASHED" || recoveryBanner.code === "RELAY_START_FAILED" || recoveryBanner.code === "PORT_IN_USE"}
+          <button type="button" class="primary" onclick={onRun} disabled={!canAct}>Restart Run</button>
           <button type="button" onclick={onStop} disabled={busy || stopping}>Stop</button>
         {:else}
           <button type="button" class="primary" onclick={onRun} disabled={!canAct}>Retry Run</button>
@@ -839,6 +962,10 @@
   .banner.warn {
     background: #3b3218;
     border-color: #a67c2a;
+  }
+  .banner.recovery {
+    order: -1;
+    box-shadow: 0 0 0 1px #8b3a3a;
   }
   .ok {
     color: #81c995;

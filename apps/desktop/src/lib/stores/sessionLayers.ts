@@ -1,10 +1,18 @@
 /**
  * Three-layer session evidence (EVENT_STATUS_MAP).
- * Sharing is NEVER claimed — Device VPN Active needs handshake we do not have yet.
+ *
+ * Sharing is NEVER claimed from intent-sent alone.
+ * Optional owned-relay LogLine probe (`Client #<n> connected`) upgrades
+ * Tunnel/client liveness copy to “Relay accepted client” — not Sharing.
+ * Device VPN stays Pending until stronger evidence; see
+ * docs/architecture/networking/HANDSHAKE_LIVENESS_MVP.md.
  */
 
 export type TunnelLayer = "unknown" | "ok" | "lost" | "failed";
-/** pending = intent sent / waiting consent; active reserved for handshake (unused in Phase 2). */
+/**
+ * pending = intent sent / waiting consent.
+ * active reserved for device-side handshake (logcat etc.) — unused until reliable.
+ */
 export type VpnLayer = "idle" | "pending" | "error";
 export type SessionChip =
   | "Idle"
@@ -13,12 +21,19 @@ export type SessionChip =
   | "Interrupted"
   | "Stopping"
   | "Error";
-// Deliberately omit "Sharing" — no handshake evidence in this slice.
+// Deliberately omit "Sharing" until Relay + Tunnel + Device VPN are all healthy
+// (probe alone is insufficient per EVENT_STATUS_MAP / HANDSHAKE_LIVENESS_MVP).
 
 export type SessionLayers = {
   tunnel: TunnelLayer;
   /** Serial for which tunnel evidence applies. */
   tunnelSerial: string | null;
+  /**
+   * Host relay accepted a TCP client (LogLine `Client #<n> connected` from owned relay).
+   * Drives Tunnel chip copy only — never Sharing by itself.
+   */
+  clientAccepted: boolean;
+  clientId: number | null;
   vpn: VpnLayer;
   vpnSerial: string | null;
   /** Wall-clock ms when VPN pending started (for START_TIMEOUT heuristic). */
@@ -33,6 +48,8 @@ export function initialSessionLayers(): SessionLayers {
   return {
     tunnel: "unknown",
     tunnelSerial: null,
+    clientAccepted: false,
+    clientId: null,
     vpn: "idle",
     vpnSerial: null,
     vpnPendingSinceMs: null,
@@ -56,6 +73,8 @@ export function markTunnelFailed(s: SessionLayers, serial: string | null): Sessi
     ...s,
     tunnel: "failed",
     tunnelSerial: serial,
+    clientAccepted: false,
+    clientId: null,
     lastCode: "TUNNEL_FAILED",
     chipOverride: "Error",
   };
@@ -66,6 +85,8 @@ export function markTunnelLost(s: SessionLayers): SessionLayers {
     return {
       ...s,
       tunnel: s.tunnel === "unknown" ? "unknown" : "lost",
+      clientAccepted: false,
+      clientId: null,
       vpn: s.vpn === "pending" ? "idle" : s.vpn,
       vpnPendingSinceMs: null,
     };
@@ -73,6 +94,8 @@ export function markTunnelLost(s: SessionLayers): SessionLayers {
   return {
     ...s,
     tunnel: "lost",
+    clientAccepted: false,
+    clientId: null,
     vpn: "idle",
     vpnPendingSinceMs: null,
     lastCode: "TUNNEL_LOST",
@@ -98,6 +121,8 @@ export function markVpnIdle(s: SessionLayers): SessionLayers {
     vpn: "idle",
     vpnSerial: null,
     vpnPendingSinceMs: null,
+    clientAccepted: false,
+    clientId: null,
     lastCode:
       s.lastCode === "VPN_PERMISSION_PENDING" || s.lastCode === "START_TIMEOUT"
         ? null
@@ -116,6 +141,26 @@ export function markVpnTimeout(s: SessionLayers): SessionLayers {
   };
 }
 
+/** Owned-relay LogLine: Client #<n> connected → Tunnel chip “Relay accepted client”. */
+export function markClientAccepted(s: SessionLayers, clientId: number): SessionLayers {
+  return {
+    ...s,
+    clientAccepted: true,
+    clientId,
+    // Keep VPN Pending — host saw TCP client, not full three-layer Sharing.
+  };
+}
+
+/** Owned-relay LogLine: Client #<n> disconnected (or relay death). */
+export function clearClientAccepted(s: SessionLayers): SessionLayers {
+  if (!s.clientAccepted && s.clientId == null) return s;
+  return {
+    ...s,
+    clientAccepted: false,
+    clientId: null,
+  };
+}
+
 export function clearSessionIntent(s: SessionLayers): SessionLayers {
   return {
     ...initialSessionLayers(),
@@ -128,7 +173,8 @@ export function relayLayerHealthy(relayState: string, ownedBySession: boolean): 
 }
 
 /**
- * Derive session chip. Never returns Sharing — handshake not available.
+ * Derive session chip. Never returns Sharing — need Relay+Tunnel+VPN Active
+ * (EVENT_STATUS_MAP); client-accepted probe alone is not enough.
  */
 export function deriveSessionChip(opts: {
   layers: SessionLayers;
@@ -142,12 +188,16 @@ export function deriveSessionChip(opts: {
   if (layers.chipOverride === "Interrupted" || layers.tunnel === "lost") return "Interrupted";
   if (busy) return "Starting";
   if (layers.vpn === "pending") return "Waiting for VPN";
-  // Even if relay + tunnel look ok, without VPN Active/handshake we stay Idle/Waiting — never Sharing.
+  // Even with clientAccepted + relay + tunnel ok, VPN Active missing → never Sharing.
   void relayHealthy;
+  void layers.clientAccepted;
   return "Idle";
 }
 
-export function tunnelLabel(t: TunnelLayer): string {
+export function tunnelLabel(t: TunnelLayer, clientAccepted = false): string {
+  if (clientAccepted && (t === "ok" || t === "unknown")) {
+    return "Relay accepted client";
+  }
   switch (t) {
     case "ok":
       return "OK";
