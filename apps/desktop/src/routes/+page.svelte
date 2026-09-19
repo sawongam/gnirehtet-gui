@@ -7,6 +7,10 @@
     startRelay,
     stopRelay,
     getRelayState,
+    install,
+    resetTunnel,
+    runSession,
+    stopClient,
   } from "$lib/api/orchestrator";
   import type {
     AdbInfo,
@@ -21,6 +25,22 @@
     applyDeviceList,
     selectedDevice,
   } from "$lib/stores/devices";
+  import {
+    clearSessionIntent,
+    deriveSessionChip,
+    initialSessionLayers,
+    markTunnelFailed,
+    markTunnelLost,
+    markTunnelOk,
+    markVpnIdle,
+    markVpnPending,
+    markVpnTimeout,
+    relayLayerHealthy,
+    tunnelLabel,
+    vpnLabel,
+    VPN_PENDING_TIMEOUT_MS,
+    type SessionLayers,
+  } from "$lib/stores/sessionLayers";
   import {
     deviceStateClass,
     deviceStateLabel,
@@ -39,12 +59,12 @@
   });
   let logs = $state<LogLine[]>([]);
   let busy = $state(false);
+  let stopping = $state(false);
   let actionError = $state<string | null>(null);
   let lastAppError = $state<AppError | null>(null);
   let pollBusy = $state(false);
-
-  // Expose last typed Error for status (ADB_* also set adbErrorCode).
-  const lastErrorCode = $derived(lastAppError?.code ?? null);
+  let layers = $state<SessionLayers>(initialSessionLayers());
+  let vpnTick = $state(0);
 
   const LOG_CAP = 500;
 
@@ -67,8 +87,23 @@
 
   function setDevices(next: DeviceInfo[]) {
     const applied = applyDeviceList(next, selectedSerial);
+    const prevSerial = selectedSerial;
     devices = applied.devices;
     selectedSerial = applied.selectedSerial;
+
+    // Device gone / not ready while tunnel was OK → TUNNEL_LOST (Interrupted).
+    if (prevSerial && layers.tunnel === "ok" && layers.tunnelSerial === prevSerial) {
+      const still = applied.devices.find((d) => d.serial === prevSerial);
+      if (!still || still.adbState !== "device") {
+        layers = markTunnelLost(layers);
+        lastAppError = {
+          code: "TUNNEL_LOST",
+          message: "Device unplugged or not ready — adb reverse tunnel lost",
+          serial: prevSerial,
+        };
+        actionError = `[TUNNEL_LOST] ${lastAppError.message}`;
+      }
+    }
   }
 
   async function refreshAdb() {
@@ -78,7 +113,6 @@
     } catch (e) {
       adb = null;
       adbErrorCode = errCode(e) ?? "ADB_MISSING";
-      // Error event also emitted by backend for ADB_* codes.
     }
   }
 
@@ -109,7 +143,7 @@
   }
 
   async function pollDevices() {
-    if (pollBusy || busy) return;
+    if (pollBusy || busy || stopping) return;
     pollBusy = true;
     try {
       if (!adb) {
@@ -128,6 +162,149 @@
       relay = await getRelayState();
     } catch {
       /* ignore */
+    }
+  }
+
+  const selected = $derived(selectedDevice(devices, selectedSerial));
+  const deviceReady = $derived(!!selected && selected.adbState === "device");
+  const adbOk = $derived(!!adb && !adbErrorCode);
+  const canAct = $derived(adbOk && deviceReady && !busy && !stopping);
+  const relayHealthy = $derived(
+    relayLayerHealthy(relay.state, relay.ownedBySession),
+  );
+
+  const sessionChip = $derived(
+    deriveSessionChip({
+      layers,
+      busy,
+      stopping,
+      relayHealthy,
+    }),
+  );
+
+  // Re-evaluate VPN pending timeout when vpnTick advances.
+  const vpnPendingExpired = $derived.by(() => {
+    void vpnTick;
+    if (layers.vpn !== "pending" || layers.vpnPendingSinceMs == null) return false;
+    return Date.now() - layers.vpnPendingSinceMs >= VPN_PENDING_TIMEOUT_MS;
+  });
+
+  $effect(() => {
+    if (vpnPendingExpired && layers.vpn === "pending") {
+      layers = markVpnTimeout(layers);
+      lastAppError = {
+        code: "START_TIMEOUT",
+        message:
+          "VPN permission / handshake not confirmed in time (intent-sent ≠ connected)",
+        serial: layers.vpnSerial,
+      };
+      actionError = `[START_TIMEOUT] ${lastAppError.message}`;
+    }
+  });
+
+  async function onInstall() {
+    if (!selectedSerial || !canAct) return;
+    busy = true;
+    actionError = null;
+    try {
+      await install(selectedSerial);
+      logs = [
+        ...logs,
+        {
+          timestampMs: Date.now(),
+          level: "info",
+          source: "ui",
+          message: `install ok serial=${selectedSerial}`,
+        },
+      ].slice(-LOG_CAP);
+    } catch (e) {
+      actionError = errMsg(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function onRepairTunnel() {
+    if (!selectedSerial || !canAct) return;
+    busy = true;
+    actionError = null;
+    try {
+      await resetTunnel(selectedSerial);
+      layers = markTunnelOk(layers, selectedSerial);
+      actionError = null;
+      if (lastAppError?.code === "TUNNEL_LOST" || lastAppError?.code === "TUNNEL_FAILED") {
+        lastAppError = null;
+      }
+    } catch (e) {
+      layers = markTunnelFailed(layers, selectedSerial);
+      actionError = errMsg(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  /** One-click ≈ run: owned relay + install-if-needed + tunnel + start intent. */
+  async function onRun() {
+    if (!selectedSerial || !canAct) return;
+    busy = true;
+    actionError = null;
+    lastAppError = null;
+    try {
+      relay = await runSession({ serial: selectedSerial });
+      // start/run includes tunnel — mark OK on success; VPN stays Pending (no handshake).
+      layers = markTunnelOk(layers, selectedSerial);
+      layers = markVpnPending(layers, selectedSerial, Date.now());
+    } catch (e) {
+      const code = errCode(e);
+      actionError = errMsg(e);
+      if (code === "TUNNEL_FAILED") {
+        layers = markTunnelFailed(layers, selectedSerial);
+      } else if (code === "APK_MISSING" || code === "INSTALL_FAILED" || code === "CLIENT_START_FAILED") {
+        layers = { ...layers, vpn: "error", lastCode: code, chipOverride: "Error" };
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
+  /** Session-scoped stop: device client + clear owned relay if we started it. */
+  async function onStop() {
+    if (!selectedSerial || busy || stopping) return;
+    if (!adbOk) return;
+    stopping = true;
+    actionError = null;
+    try {
+      try {
+        await stopClient(selectedSerial);
+      } catch (e) {
+        actionError = errMsg(e);
+      }
+      if (relay.ownedBySession) {
+        try {
+          relay = await stopRelay();
+        } catch (e) {
+          actionError = actionError ? `${actionError}; ${errMsg(e)}` : errMsg(e);
+        }
+      }
+      layers = clearSessionIntent(layers);
+      if (lastAppError?.code === "VPN_PERMISSION_PENDING" || lastAppError?.code === "START_TIMEOUT") {
+        lastAppError = null;
+      }
+    } finally {
+      stopping = false;
+    }
+  }
+
+  function onIveAllowedVpn() {
+    // Honesty: we cannot confirm handshake — reset pending timer, stay Waiting (not Sharing).
+    if (layers.vpn === "pending" && selectedSerial) {
+      layers = markVpnPending(layers, selectedSerial, Date.now());
+      actionError = null;
+      lastAppError = {
+        code: "VPN_PERMISSION_PENDING",
+        message: "Still waiting — check the phone Connection request (not Sharing yet)",
+        serial: selectedSerial,
+      };
     }
   }
 
@@ -159,6 +336,7 @@
     const unlisteners: UnlistenFn[] = [];
     let cancelled = false;
     let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let vpnTimer: ReturnType<typeof setInterval> | null = null;
 
     (async () => {
       unlisteners.push(
@@ -182,6 +360,16 @@
             adb = null;
             adbErrorCode = ev.payload.code;
           }
+          if (ev.payload.code === "TUNNEL_FAILED") {
+            layers = markTunnelFailed(layers, ev.payload.serial ?? selectedSerial);
+          }
+          if (ev.payload.code === "TUNNEL_LOST") {
+            layers = markTunnelLost(layers);
+          }
+          if (ev.payload.code === "RELAY_CRASHED") {
+            // Relay layer unhealthy — do not claim VPN/Sharing.
+            layers = markVpnIdle(layers);
+          }
         }),
       );
       unlisteners.push(
@@ -192,16 +380,19 @@
       );
       if (!cancelled) {
         await refreshAll();
-        // DESKTOP_LIFECYCLE §3.1: visible ~2s poll (no Sharing / no networking redesign).
         pollTimer = setInterval(() => {
           if (!cancelled) void pollDevices();
         }, DEVICE_POLL_VISIBLE_MS);
+        vpnTimer = setInterval(() => {
+          if (!cancelled) vpnTick = Date.now();
+        }, 2000);
       }
     })();
 
     return () => {
       cancelled = true;
       if (pollTimer) clearInterval(pollTimer);
+      if (vpnTimer) clearInterval(vpnTimer);
       unlisteners.forEach((u) => u());
     };
   });
@@ -210,11 +401,7 @@
     relay.state.replace(/^relay_/, "").replace(/_/g, " "),
   );
 
-  const selected = $derived(selectedDevice(devices, selectedSerial));
-
-  const adbBanner = $derived(
-    adbErrorCode ? errorUxFor(adbErrorCode) : null,
-  );
+  const adbBanner = $derived(adbErrorCode ? errorUxFor(adbErrorCode) : null);
 
   const authBanner = $derived.by(() => {
     const d = selected;
@@ -228,17 +415,46 @@
       ? errorUxFor("NO_DEVICES")
       : null,
   );
+
+  const vpnBanner = $derived.by(() => {
+    if (layers.vpn === "pending") return errorUxFor("VPN_PERMISSION_PENDING");
+    if (layers.lastCode === "START_TIMEOUT") return errorUxFor("START_TIMEOUT");
+    if (layers.lastCode === "TUNNEL_LOST") return errorUxFor("TUNNEL_LOST");
+    return null;
+  });
+
+  const actionBanner = $derived.by(() => {
+    if (!actionError || adbBanner) return null;
+    const code = lastAppError?.code;
+    if (code && (code === "VPN_PERMISSION_PENDING" || code === "START_TIMEOUT" || code === "TUNNEL_LOST")) {
+      return null; // dedicated banners
+    }
+    if (code) {
+      const ux = errorUxFor(code);
+      if (ux) return { kind: "ux" as const, ux, raw: actionError };
+    }
+    return { kind: "raw" as const, raw: actionError };
+  });
 </script>
 
 <main class="app">
   <header>
     <h1>gnirehtet-gui</h1>
     <p class="sub">
-      Phase 1 — device list + ADB auth state (one device). No Sharing claim.
+      Phase 2 — install / tunnel / run / stop for one device. Three layers;
+      never claim Sharing without handshake.
     </p>
   </header>
 
   <section class="status-bar" aria-live="polite">
+    <div class="chip">
+      <span class="label">Session</span>
+      <span
+        class:ok={sessionChip === "Idle"}
+        class:warn={sessionChip === "Waiting for VPN" || sessionChip === "Interrupted" || sessionChip === "Starting" || sessionChip === "Stopping"}
+        class:err={sessionChip === "Error"}>{sessionChip}</span
+      >
+    </div>
     <div class="chip">
       <span class="label">ADB</span>
       {#if adb}
@@ -261,19 +477,36 @@
         <span class="muted">none selected</span>
       {/if}
     </div>
-    <div class="chip">
+  </section>
+
+  <section class="layers" aria-label="Three-layer status">
+    <div class="layer">
       <span class="label">Relay</span>
       <span
-        class:ok={relay.state === "relay_running"}
+        class:ok={relayHealthy}
         class:err={relay.state === "relay_error" || relay.state === "relay_exited"}
-        >{relayLabel}</span
+        class:warn={relay.state === "relay_starting"}
+        >{relayHealthy ? "Listening" : relayLabel}</span
       >
-      {#if relay.port}
-        <span class="muted">:{relay.port}</span>
-      {/if}
-      {#if relay.ownedBySession}
-        <span class="ok">owned</span>
-      {/if}
+      {#if relay.port}<span class="muted">:{relay.port}</span>{/if}
+      {#if relay.ownedBySession}<span class="ok">owned</span>{/if}
+    </div>
+    <div class="layer">
+      <span class="label">Tunnel</span>
+      <span
+        class:ok={layers.tunnel === "ok"}
+        class:err={layers.tunnel === "lost" || layers.tunnel === "failed"}
+        class:muted={layers.tunnel === "unknown"}>{tunnelLabel(layers.tunnel)}</span
+      >
+    </div>
+    <div class="layer">
+      <span class="label">Device VPN</span>
+      <span
+        class:warn={layers.vpn === "pending"}
+        class:err={layers.vpn === "error"}
+        class:muted={layers.vpn === "idle"}>{vpnLabel(layers.vpn)}</span
+      >
+      <span class="muted tip">Active only after handshake — not claimed</span>
     </div>
   </section>
 
@@ -302,10 +535,44 @@
       <p class="muted">{emptyBanner.recoveryHint}</p>
     </div>
   {/if}
-  {#if actionError && !adbBanner}
+  {#if vpnBanner && !adbBanner}
+    <div
+      class="banner"
+      class:warn={vpnBanner.code === "VPN_PERMISSION_PENDING" || vpnBanner.code === "TUNNEL_LOST"}
+      class:err={vpnBanner.code === "START_TIMEOUT"}
+      role="status"
+    >
+      <strong>[{vpnBanner.code}] {vpnBanner.title}</strong>
+      <p>{vpnBanner.explanation}</p>
+      <p class="muted">{vpnBanner.recoveryHint}</p>
+      <div class="actions tight">
+        {#if vpnBanner.code === "VPN_PERMISSION_PENDING"}
+          <button type="button" onclick={onIveAllowedVpn} disabled={busy}>
+            I’ve allowed it (recheck)
+          </button>
+          <button type="button" onclick={onStop} disabled={busy || stopping}>Stop</button>
+        {:else if vpnBanner.code === "TUNNEL_LOST"}
+          <button type="button" class="primary" onclick={onRepairTunnel} disabled={!canAct}>
+            Repair tunnel
+          </button>
+          <button type="button" onclick={onStop} disabled={busy || stopping}>Stop</button>
+        {:else}
+          <button type="button" class="primary" onclick={onRun} disabled={!canAct}>Retry Run</button>
+          <button type="button" onclick={onStop} disabled={busy || stopping}>Stop</button>
+        {/if}
+      </div>
+    </div>
+  {/if}
+  {#if actionBanner}
     <div class="banner err" role="alert">
-      {actionError}
-      {#if lastErrorCode}<span class="muted"> · last Error event: {lastErrorCode}</span>{/if}
+      {#if actionBanner.kind === "ux"}
+        <strong>[{actionBanner.ux.code}] {actionBanner.ux.title}</strong>
+        <p>{actionBanner.ux.explanation}</p>
+        <p class="muted">{actionBanner.ux.recoveryHint}</p>
+        <p class="muted">{actionBanner.raw}</p>
+      {:else}
+        {actionBanner.raw}
+      {/if}
     </div>
   {/if}
 
@@ -347,7 +614,7 @@
       {/if}
       {#if selected}
         <p class="muted select-hint">
-          Selected for later install/start/stop: <code>{selected.serial}</code>
+          Selected: <code>{selected.serial}</code>
           ({deviceStateLabel(selected.adbState)})
         </p>
       {/if}
@@ -355,26 +622,39 @@
 
     <section class="panel">
       <div class="panel-head">
-        <h2>Relay</h2>
+        <h2>Session actions</h2>
       </div>
       <p class="muted">
-        Start/Stop spawn the stock external <code>gnirehtet</code> binary
-        (session-owned only). Device VPN / Sharing handshake is out of this
-        slice.
+        Run ≈ install-if-needed → tunnel → start + session-owned relay. Stop =
+        stop client + clear owned relay. Sharing is not claimed without
+        handshake.
       </p>
-      <div class="actions">
+      <div class="actions wrap">
+        <button type="button" onclick={onInstall} disabled={!canAct}>Install</button>
+        <button type="button" onclick={onRepairTunnel} disabled={!canAct}>
+          Repair tunnel
+        </button>
+        <button type="button" class="primary" onclick={onRun} disabled={!canAct}>
+          {busy ? "Starting…" : "Run"}
+        </button>
         <button
           type="button"
-          class="primary"
-          onclick={onStartRelay}
-          disabled={busy}
+          onclick={onStop}
+          disabled={!adbOk || !selectedSerial || busy || stopping}
         >
+          {stopping ? "Stopping…" : "Stop"}
+        </button>
+      </div>
+      <hr class="sep" />
+      <p class="muted">Relay-only (advanced):</p>
+      <div class="actions">
+        <button type="button" onclick={onStartRelay} disabled={busy || stopping}>
           Start Relay
         </button>
         <button
           type="button"
           onclick={onStopRelay}
-          disabled={busy || !relay.ownedBySession}
+          disabled={busy || stopping || !relay.ownedBySession}
         >
           Stop Relay
         </button>
@@ -428,7 +708,8 @@
     flex-wrap: wrap;
     gap: 0.75rem;
   }
-  .chip {
+  .chip,
+  .layer {
     display: flex;
     align-items: center;
     gap: 0.4rem;
@@ -438,12 +719,24 @@
     padding: 0.35rem 0.75rem;
     font-size: 0.85rem;
   }
-  .chip .label {
+  .chip .label,
+  .layer .label {
     font-weight: 600;
     color: #9aa0a6;
     text-transform: uppercase;
     font-size: 0.7rem;
     letter-spacing: 0.04em;
+  }
+  .layers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .layer {
+    border-radius: 8px;
+  }
+  .layer .tip {
+    font-size: 0.7rem;
   }
   .grid {
     display: grid;
@@ -497,9 +790,18 @@
     display: flex;
     gap: 0.5rem;
     margin-top: 0.75rem;
+    flex-wrap: wrap;
   }
   .actions.tight {
     margin-top: 0.5rem;
+  }
+  .actions.wrap {
+    flex-wrap: wrap;
+  }
+  .sep {
+    border: none;
+    border-top: 1px solid #2a2f3a;
+    margin: 1rem 0 0.5rem;
   }
   button {
     border-radius: 8px;

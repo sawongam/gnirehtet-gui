@@ -1,6 +1,6 @@
 /**
- * ERROR_UX titles / short explanations for device + ADB codes (Phase 1 shell).
- * Source: docs/architecture/ux/ERROR_UX.md — do not invent Sharing claims.
+ * ERROR_UX titles / short explanations (Phase 2 shell).
+ * Source: docs/architecture/ux/ERROR_UX.md — do not invent codes or Sharing claims.
  */
 
 export type ErrorUxCopy = {
@@ -44,6 +44,67 @@ const TABLE: Record<string, Omit<ErrorUxCopy, "code">> = {
     title: "Select a device",
     explanation: "More than one device is connected. This version shares with one device at a time.",
     recoveryHint: "Select a row · Refresh.",
+  },
+  APK_MISSING: {
+    title: "Helper APK not found",
+    explanation:
+      "The Android helper (gnirehtet client) isn’t bundled or the configured path is empty.",
+    recoveryHint: "Set GNIREHTET_APK or place resources/gnirehtet.apk · Copy error.",
+  },
+  INSTALL_FAILED: {
+    title: "Couldn’t install helper",
+    explanation:
+      "adb install failed (storage, signature, OEM install-via-USB, etc.).",
+    recoveryHint: "Reinstall helper · Enable Install via USB (MIUI) · Copy log.",
+  },
+  PORT_IN_USE: {
+    title: "Relay port already in use",
+    explanation:
+      "Nothing new can listen on the configured port (default 31416). Another relay may be bound.",
+    recoveryHint: "Stop leftover relay · Change port next start · Copy error.",
+  },
+  RELAY_START_FAILED: {
+    title: "Relay didn’t start",
+    explanation: "The PC relay process exited or never listened.",
+    recoveryHint: "Retry Start/Run · Allow app through firewall · Check logs.",
+  },
+  RELAY_CRASHED: {
+    title: "Relay stopped unexpectedly",
+    explanation: "The phone path cannot continue without the relay.",
+    recoveryHint: "Restart Run · Stop (clean phone side) · Copy logs.",
+  },
+  TUNNEL_FAILED: {
+    title: "Couldn’t create tunnel",
+    explanation: "adb reverse (tunnel) did not set up. Traffic can’t reach the relay.",
+    recoveryHint: "Repair tunnel · Replug USB · Refresh device · Copy log.",
+  },
+  TUNNEL_LOST: {
+    title: "Sharing interrupted",
+    explanation:
+      "Unplugging USB kills the adb reverse tunnel. The relay may still be listening; the phone path is broken.",
+    recoveryHint: "Replug · Repair tunnel · Restart Run · Stop.",
+  },
+  CLIENT_START_FAILED: {
+    title: "Couldn’t start helper on phone",
+    explanation: "The start intent failed.",
+    recoveryHint: "Retry · Open helper manually · Check OEM Permission Monitoring.",
+  },
+  VPN_PERMISSION_PENDING: {
+    title: "Waiting for VPN permission",
+    explanation:
+      "Android must show a Connection request. The desktop cannot tap it. Do not treat this as Sharing yet.",
+    recoveryHint: "Allow on phone · I’ve allowed it · Stop.",
+  },
+  START_TIMEOUT: {
+    title: "Start timed out",
+    explanation:
+      "Start didn’t reach a healthy Relay + Tunnel + Device VPN handshake in time. Intent-sent is not connected.",
+    recoveryHint: "Retry · I’ve allowed VPN · Repair tunnel · Stop.",
+  },
+  STOP_FAILED: {
+    title: "Couldn’t stop cleanly",
+    explanation: "Stop intent or teardown failed. The phone key icon or relay may linger.",
+    recoveryHint: "Retry Stop · Stop leftover relay · Stop helper on phone.",
   },
 };
 

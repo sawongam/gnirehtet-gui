@@ -103,6 +103,15 @@ fn map_controller_err(e: &ControllerError) -> (String, String) {
     (code, e.to_string())
 }
 
+/// Prefer controller `ux_code()`; else stage-specific ERROR_UX fallback (never invent codes).
+fn map_controller_err_stage(e: &ControllerError, stage_fallback: &str) -> (String, String) {
+    let code = e
+        .ux_code()
+        .unwrap_or(stage_fallback)
+        .to_string();
+    (code, e.to_string())
+}
+
 fn now_ms() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
     SystemTime::now()
@@ -620,18 +629,29 @@ pub fn install(
     serial: Option<String>,
 ) -> OrchResult<()> {
     let session = lock_session(&state)?;
+    let serial_label = serial.as_deref().unwrap_or("(default)");
     emit_log(
         &app,
         "info",
         "orchestrator",
-        format!(
-            "stage=install serial={}",
-            serial.as_deref().unwrap_or("(default)")
-        ),
+        format!("stage=install serial={serial_label}"),
     );
-    session
-        .install(serial.as_deref())
-        .map_err(OrchError::from_controller)
+    match session.install(serial.as_deref()) {
+        Ok(()) => {
+            emit_log(
+                &app,
+                "info",
+                "orchestrator",
+                format!("stage=install serial={serial_label} success=true"),
+            );
+            Ok(())
+        }
+        Err(e) => {
+            let (code, message) = map_controller_err_stage(&e, "INSTALL_FAILED");
+            emit_error_serial(&app, &code, message.clone(), serial.clone());
+            Err(OrchError::coded(code, message))
+        }
+    }
 }
 
 #[tauri::command]
@@ -654,18 +674,29 @@ pub fn start_client(
         routes: routes_s,
         port: listen,
     };
+    let serial_label = serial.as_deref().unwrap_or("(default)");
     emit_log(
         &app,
         "info",
         "orchestrator",
-        format!(
-            "stage=start serial={} port={listen}",
-            serial.as_deref().unwrap_or("(default)")
-        ),
+        format!("stage=start serial={serial_label} port={listen}"),
     );
-    session
-        .start(serial.as_deref(), &opts)
-        .map_err(OrchError::from_controller)
+    match session.start(serial.as_deref(), &opts) {
+        Ok(()) => {
+            emit_log(
+                &app,
+                "info",
+                "orchestrator",
+                format!("stage=start serial={serial_label} port={listen} success=true intent_sent"),
+            );
+            Ok(())
+        }
+        Err(e) => {
+            let (code, message) = map_controller_err_stage(&e, "CLIENT_START_FAILED");
+            emit_error_serial(&app, &code, message.clone(), serial.clone());
+            Err(OrchError::coded(code, message))
+        }
+    }
 }
 
 #[tauri::command]
@@ -675,18 +706,29 @@ pub fn stop_client(
     serial: Option<String>,
 ) -> OrchResult<()> {
     let session = lock_session(&state)?;
+    let serial_label = serial.as_deref().unwrap_or("(default)");
     emit_log(
         &app,
         "info",
         "orchestrator",
-        format!(
-            "stage=stop_client serial={}",
-            serial.as_deref().unwrap_or("(default)")
-        ),
+        format!("stage=stop_client serial={serial_label}"),
     );
-    session
-        .stop(serial.as_deref())
-        .map_err(OrchError::from_controller)
+    match session.stop(serial.as_deref()) {
+        Ok(()) => {
+            emit_log(
+                &app,
+                "info",
+                "orchestrator",
+                format!("stage=stop_client serial={serial_label} success=true"),
+            );
+            Ok(())
+        }
+        Err(e) => {
+            let (code, message) = map_controller_err_stage(&e, "STOP_FAILED");
+            emit_error_serial(&app, &code, message.clone(), serial.clone());
+            Err(OrchError::coded(code, message))
+        }
+    }
 }
 
 #[tauri::command]
@@ -697,19 +739,29 @@ pub fn reset_tunnel(
     port: Option<u16>,
 ) -> OrchResult<()> {
     let mut session = lock_session(&state)?;
+    let serial_label = serial.as_deref().unwrap_or("(default)");
     emit_log(
         &app,
         "info",
         "orchestrator",
-        format!(
-            "stage=reset_tunnel serial={} port={:?}",
-            serial.as_deref().unwrap_or("(default)"),
-            port
-        ),
+        format!("stage=reset_tunnel serial={serial_label} port={port:?}"),
     );
-    session
-        .reset_tunnel(serial.as_deref(), port)
-        .map_err(OrchError::from_controller)
+    match session.reset_tunnel(serial.as_deref(), port) {
+        Ok(()) => {
+            emit_log(
+                &app,
+                "info",
+                "orchestrator",
+                format!("stage=reset_tunnel serial={serial_label} success=true"),
+            );
+            Ok(())
+        }
+        Err(e) => {
+            let (code, message) = map_controller_err_stage(&e, "TUNNEL_FAILED");
+            emit_error_serial(&app, &code, message.clone(), serial.clone());
+            Err(OrchError::coded(code, message))
+        }
+    }
 }
 
 /// One-click ≈ upstream `run`: owned relay with stdio LogLine pump, then ADB start.
@@ -816,10 +868,19 @@ pub fn run_session(
             port: listen,
         };
         if let Err(e) = session.start(serial.as_deref(), &vpn) {
-            let (code, message) = map_controller_err(&e);
-            emit_error(&app, &code, message.clone());
+            let (code, message) = map_controller_err_stage(&e, "CLIENT_START_FAILED");
+            emit_error_serial(&app, &code, message.clone(), serial.clone());
             return Err(OrchError::coded(code, message));
         }
+        emit_log(
+            &app,
+            "info",
+            "orchestrator",
+            format!(
+                "stage=run serial={} client_intent_sent (VPN Active requires handshake — not claimed)",
+                serial.as_deref().unwrap_or("(default)")
+            ),
+        );
         let payload = snapshot_relay(&session);
         emit_relay_state(&app, payload.clone());
         Ok(payload)
