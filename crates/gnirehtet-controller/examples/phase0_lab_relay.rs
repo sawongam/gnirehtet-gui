@@ -1,5 +1,6 @@
 //! Headless Phase 0 lab: R1/R2/R5 + APK_MISSING + **P0-R4** foreign PORT_IN_USE
-//! + **P0-Q1** quit/`clear_owned_relay` (no orphan; do not kill adb server).
+//! + **P0-Q1** quit/`clear_owned_relay` (no orphan; do not kill adb server)
+//! + **P0-Q2** mid-start quit (start_relay_with_stdio → immediate clear; no orphan).
 //!
 //! ```bash
 //! ./scripts/phase0_lab_relay.sh
@@ -271,6 +272,93 @@ fn main() {
         report.push(format!("P0-Q1_pass={q1_ok}"));
     }
 
+    // -------------------------------------------------------------------------
+    // P0-Q2: mid-start quit — begin start_relay_with_stdio, then immediately
+    // clear_owned_relay / Drop before draining pipes (quit-while-starting).
+    // Assert: no orphan PID, port free, owns_relay=false.
+    // -------------------------------------------------------------------------
+    let mut q2_ok = false;
+    {
+        let q2port = if probe_relay_port(DEFAULT_RELAY_PORT).is_ok() {
+            DEFAULT_RELAY_PORT
+        } else {
+            free_ephemeral_port()
+        };
+        let mut q2 = SessionController::new(ControllerConfig {
+            adb: AdbConfig::default(),
+            gnirehtet_path: bin.clone(),
+        });
+        match q2.start_relay_with_stdio(Some(q2port)) {
+            Ok(stdio) => {
+                let q2pid = q2.owned_relay_pid().unwrap_or(0);
+                report.push(format!("P0-Q2_owns_before={}", q2.owns_relay()));
+                report.push(format!("P0-Q2_pid={q2pid}"));
+                report.push(format!("P0-Q2_port={q2port}"));
+
+                // Quit path immediately — do not drain pipes (mid-start / mid-pump).
+                q2.clear_owned_relay();
+                drop(stdio);
+
+                report.push(format!("P0-Q2_owns_after_clear={}", q2.owns_relay()));
+                let poll_after = q2.poll_owned_relay().ok().flatten();
+                report.push(format!(
+                    "P0-Q2_poll_after_clear_is_none={}",
+                    poll_after.is_none()
+                ));
+
+                thread::sleep(Duration::from_millis(300));
+                let proc_gone = q2pid == 0 || !process_alive(q2pid);
+                let port_free_q2 = probe_relay_port(q2port).is_ok();
+                report.push(format!("P0-Q2_process_gone={proc_gone}"));
+                report.push(format!("P0-Q2_port_free={port_free_q2}"));
+
+                // Second leg: spawn then Drop session (quit via Drop) without clear call.
+                let q2port_b = if probe_relay_port(DEFAULT_RELAY_PORT).is_ok() {
+                    DEFAULT_RELAY_PORT
+                } else {
+                    free_ephemeral_port()
+                };
+                let drop_pid = {
+                    let mut q2b = SessionController::new(ControllerConfig {
+                        adb: AdbConfig::default(),
+                        gnirehtet_path: bin.clone(),
+                    });
+                    match q2b.start_relay_with_stdio(Some(q2port_b)) {
+                        Ok(stdio_b) => {
+                            let pid_b = q2b.owned_relay_pid().unwrap_or(0);
+                            report.push(format!("P0-Q2_drop_leg_pid={pid_b}"));
+                            report.push(format!("P0-Q2_drop_leg_port={q2port_b}"));
+                            // Drop controller (calls clear_owned_relay) while stdio still live.
+                            drop(q2b);
+                            drop(stdio_b);
+                            pid_b
+                        }
+                        Err(e) => {
+                            report.push(format!("P0-Q2_drop_leg_start_ERR={e}"));
+                            0
+                        }
+                    }
+                };
+                thread::sleep(Duration::from_millis(300));
+                let drop_gone = drop_pid == 0 || !process_alive(drop_pid);
+                let drop_port_free = probe_relay_port(q2port_b).is_ok();
+                report.push(format!("P0-Q2_drop_leg_process_gone={drop_gone}"));
+                report.push(format!("P0-Q2_drop_leg_port_free={drop_port_free}"));
+
+                q2_ok = !q2.owns_relay()
+                    && poll_after.is_none()
+                    && proc_gone
+                    && port_free_q2
+                    && drop_gone
+                    && drop_port_free;
+            }
+            Err(e) => {
+                report.push(format!("P0-Q2_start_ERR={e}"));
+            }
+        }
+        report.push(format!("P0-Q2_pass={q2_ok}"));
+    }
+
     {
         let s2 = SessionController::new(ControllerConfig {
             adb: AdbConfig {
@@ -300,8 +388,9 @@ fn main() {
     report.push(format!("gate_R4={r4_ok}"));
     report.push(format!("gate_R5={r5_ok}"));
     report.push(format!("gate_Q1={q1_ok}"));
+    report.push(format!("gate_Q2={q2_ok}"));
     report.push(format!("gate_APK_MISSING={apk_ok}"));
-    let all = r1 && r2 && r4_ok && r5_ok && q1_ok && apk_ok;
+    let all = r1 && r2 && r4_ok && r5_ok && q1_ok && q2_ok && apk_ok;
     report.push(if all {
         "RESULT=PASS".into()
     } else {
