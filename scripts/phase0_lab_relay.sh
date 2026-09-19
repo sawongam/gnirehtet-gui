@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Headless Phase 0 relay ownership lab (P0-R1/R2/R5 + APK_MISSING).
+# Headless Phase 0 relay ownership lab (P0-R1/R2/R4/R5 + P0-Q1 + APK_MISSING).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
