@@ -15,9 +15,9 @@ Controller resolution stays compatible with Phase 0:
 |----------|-----------------|---------------------------|
 | Linux x86_64 | Genymobile **v2.5.1** (`gnirehtet-rust-linux64-v2.5.1.zip`) | `gnirehtet` (not the folder name) |
 | Windows x86_64 | Genymobile **v2.5.1** (`gnirehtet-rust-win64-v2.5.1.zip`) | `gnirehtet.exe` |
-| macOS | Upstream still **v2.2.1** only | `gnirehtet` |
+| macOS | **deferred** this slice (not first-class in RC packaging) | — |
 
-**Do not silently mix pins.** Linux/Windows ship/APK line is **v2.5.1** / `1eb2e58`. macOS prebuilt rust zip remains **v2.2.1** — treat as a packaging exception (document in release notes; prefer build-from-source for macOS parity later). APK stays v2.5.1 for all hosts.
+**Do not silently mix pins.** Linux/Windows ship/APK line is **v2.5.1** / `1eb2e58`. APK stays v2.5.1 for Linux/Windows hosts.
 
 Extract the executable named `gnirehtet` / `gnirehtet.exe` from the zip — **not** the zip folder name (e.g. not `gnirehtet-rust-linux64`).
 
@@ -33,7 +33,6 @@ apps/desktop/src-tauri/binaries/gnirehtet-<target-triple>[.exe]
 |----------|------|
 | Linux x86_64 | `binaries/gnirehtet-x86_64-unknown-linux-gnu` |
 | Windows x86_64 | `binaries/gnirehtet-x86_64-pc-windows-msvc.exe` |
-| macOS arm64 | `binaries/gnirehtet-aarch64-apple-darwin` |
 
 ```bash
 # Linux v2.5.1 example
@@ -44,37 +43,29 @@ unzip -p /tmp/gnirehtet-rust-linux64-v2.5.1.zip '*/gnirehtet' \
 chmod +x apps/desktop/src-tauri/binaries/gnirehtet-*
 ```
 
-```bash
-rustc -vV | sed -n 's/^host: //p'
-```
+`binaries/` is gitignored except README / `.gitkeep` — CI clones must drop the file in or clear `externalBin` (below).
 
-`binaries/` is gitignored except README / `.gitkeep` — CI and `cargo check` must not require the file.
+## Release packaging: `externalBin` **enabled**
 
-## Enable bundling (reversible; default off)
-
-`tauri.conf.json` ships with:
-
-```json
-"externalBin": []
-```
-
-so `cargo check -p gnirehtet-desktop` and CI stay green **without** a committed sidecar.
-
-When `binaries/gnirehtet-<triple>` is present and you want real installers to embed it, set:
+**RC packaging** (see `docs/architecture/desktop/RC_PACKAGING.md`) ships with:
 
 ```json
 "externalBin": ["binaries/gnirehtet"]
 ```
 
-(Tauri appends `-<triple>` / `.exe` at bundle time.)
+so `npm run tauri build` embeds the triple-suffixed sidecar into deb/rpm (Linux) or nsis/msi (Windows). Requires `binaries/gnirehtet-<triple>` present — otherwise `tauri build` fails.
 
-To revert: restore `"externalBin": []`. Dev/runtime still finds the drop-in via `GNIREHTET_BIN` / search / `PATH` even when externalBin is empty.
+### No-sidecar workflow (`cargo check` / CI without binary)
 
-**Do not auto-enable** from missing-binary-safe defaults — enabling with no triple-suffixed file breaks `tauri build`.
+Prefer release config with sidecar present. If you temporarily need a green check **without** the binary:
+
+1. Set `"externalBin": []`.
+2. Run `cargo check -p gnirehtet-desktop` / CI unit checks.
+3. Restore `"externalBin": ["binaries/gnirehtet"]` before RC installer builds.
+
+Dev/runtime still finds the drop-in via `GNIREHTET_BIN` / search / `PATH` even when `externalBin` is empty.
 
 ## Runtime resolution (Phase 0)
-
-Same order as controller `default_gnirehtet_path` / sidecar search:
 
 1. `GNIREHTET_BIN` env override  
 2. Packaged resource / sidecar path (when externalBin enabled)  

@@ -1,5 +1,10 @@
 # Phase 3 — Packaging smoke notes
 
+> **Superseded for embed status:** see **`RC_PACKAGING.md`** (2026-09-20 NPT).  
+> RC enables `externalBin: ["binaries/gnirehtet"]` and records deb/rpm with embedded sidecar.  
+> This note remains for earlier smoke history (empty externalBin era). **RC packaging ≠ MVP Done.**
+
+
 **Date:** 2026-09-19 NPT  
 **Branch tip (packaging follow-up):** see `dev` HEAD  
 **Lab host:** Linux x86_64 (box)
