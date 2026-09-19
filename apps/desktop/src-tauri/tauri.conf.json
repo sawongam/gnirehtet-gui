@@ -23,7 +23,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "rpm"],
+    "targets": [
+      "deb",
+      "rpm",
+      "nsis",
+      "msi"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -34,7 +39,14 @@
     "resources": [
       "../../../resources/*"
     ],
-    "externalBin": []
+    "externalBin": [
+      "binaries/gnirehtet"
+    ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
   },
   "plugins": {
     "shell": {
