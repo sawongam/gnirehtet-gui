@@ -32,13 +32,13 @@ Concrete checklist Desktop / Rust must pass for the **first runnable slice**. No
 
 ## 2. Sidecar spawn/stop + log stream
 
-| ID | Check | Pass | Fail | Lab (`c0eddf0` / PHASE0_LAB_NOTES) |
+| ID | Check | Pass | Fail | Lab (`29dc0fa` / PHASE0_LAB_NOTES) |
 |----|-------|------|------|-------------------------------------|
 | P0-R1 | Spawn relay sidecar (`gnirehtet relay` or equivalent managed child) | Child starts; orchestrator records PID/port; `RelayState` can become listening/ready when bind succeeds | UI claims relay up with no process | **PASS** — owns :31416, PID recorded |
 | P0-R2 | Stop owned sidecar | `stop_relay` / Stop path terminates **our** child; port not left listening by our PID | Orphan child after Stop | **PASS** — stop ok, port free |
 | P0-R3 | Log stream | Sidecar stdout/stderr line-buffered → `LogLine` events → UI log strip appends | Logs only in terminal; UI never sees lines; or log alone flips Sharing | **Partial** — pipes drained / pump wired; WebView strip not labbed |
-| P0-R4 | Foreign process policy | Process we did not start on :31416 is **not** killed; surface `PORT_IN_USE` / foreign relay per DESKTOP_LIFECYCLE | Quiet kill of foreign `gnirehtet` | **TBD** — Desktop lab in flight |
-| P0-R5 | Relay death UI SLA | If our owned relay exits/crashes after ownership, UI reflects Error / Relay Error with `RELAY_CRASHED` (ERROR_UX) within **≤3s** | Stale healthy/Sharing >3s | **PASS** (headless) — `poll_owned_relay` ≤3s after SIGKILL; UI event path code-pass (`b1b67d6`) |
+| P0-R4 | Foreign process policy | Process we did not start on :31416 is **not** killed; surface `PORT_IN_USE` / foreign relay per DESKTOP_LIFECYCLE | Quiet kill of foreign `gnirehtet` | **PASS** — foreign bind → `PORT_IN_USE`, `owns_relay=false`, foreign not killed (both start paths) |
+| P0-R5 | Relay death UI SLA | If our owned relay exits/crashes after ownership, UI reflects Error / Relay Error with `RELAY_CRASHED` (ERROR_UX) within **≤3s** | Stale healthy/Sharing >3s | **PASS** (headless) — `poll_owned_relay` ≤3s after SIGKILL; UI event path code-pass |
 
 Cross-ref: FAILURE_SCENARIOS F-R1/F-R4; TEST_MATRIX M-18/M-20. Evidence: [PHASE0_LAB_NOTES.md](../desktop/PHASE0_LAB_NOTES.md).
 
@@ -53,20 +53,20 @@ Cross-ref: FAILURE_SCENARIOS F-R1/F-R4; TEST_MATRIX M-18/M-20. Evidence: [PHASE0
 | P0-P3 | Ownership gate | Relay layer “Listening” only after **we** successfully own the listener | Attaches to wrong process; pretend success |
 | P0-P4 | Diagnostics | On port failure, logs include `stage=start_relay`, `port`, `error_code=PORT_IN_USE` (TEST_STRATEGY §8 fields) | Missing required log fields |
 
-Cross-ref: EVENT_STATUS_MAP §2 / §4; ERROR_UX `PORT_IN_USE`; FAILURE_SCENARIOS F-R2; TEST_MATRIX M-17.
+Cross-ref: EVENT_STATUS_MAP §2 / §4; ERROR_UX `PORT_IN_USE`; FAILURE_SCENARIOS F-R2; TEST_MATRIX M-17. Lab: P0-P2 covered by P0-R4 **PASS** (`29dc0fa`).
 
 ---
 
 ## 4. Quit while running → no orphan
 
-| ID | Check | Pass | Fail |
-|----|-------|------|------|
-| P0-Q1 | Quit with owned relay running | App quit hook tears down owned sidecar; configured port (**31416** default) is **free** before/as process exit completes | Listener remains; zombie child |
-| P0-Q2 | Quit mid-start | Partial start does not leave orphan relay we spawned | Orphan after cancel/quit |
-| P0-Q3 | adb server | Do **not** kill shared user `adb` server on quit by default (ERROR_UX / DESKTOP_LIFECYCLE) | Aggressive adb server kill as default |
-| P0-Q4 | Must-log | `stage=stop\|shutdown`, `port`, success flags present | Silent teardown with no trail |
+| ID | Check | Pass | Fail | Lab (`29dc0fa` / PHASE0_LAB_NOTES) |
+|----|-------|------|------|-------------------------------------|
+| P0-Q1 | Quit with owned relay running | App quit hook tears down owned sidecar; configured port (**31416** default) is **free** before/as process exit completes | Listener remains; zombie child | **PASS** — `clear_owned_relay` → child gone, port free; poll `None` |
+| P0-Q2 | Quit mid-start | Partial start does not leave orphan relay we spawned | Orphan after cancel/quit | **TBD** |
+| P0-Q3 | adb server | Do **not** kill shared user `adb` server on quit by default (ERROR_UX / DESKTOP_LIFECYCLE) | Aggressive adb server kill as default | **PASS*** — adb PIDs unchanged; *no adb server present in this lab (`adb_note=no_adb_server_present_lab_ok`) |
+| P0-Q4 | Must-log | `stage=stop\|shutdown`, `port`, success flags present | Silent teardown with no trail | Code-pass (orchestrator); full quit-hook log trail not separately labbed |
 
-Cross-ref: EVENT_STATUS_MAP §4 “Quit while owning relay”; FAILURE_SCENARIOS F-R4; TEST_MATRIX M-23; P0 SLA.
+Cross-ref: EVENT_STATUS_MAP §4 “Quit while owning relay”; FAILURE_SCENARIOS F-R4; TEST_MATRIX M-23; P0 SLA. Evidence: [PHASE0_LAB_NOTES.md](../desktop/PHASE0_LAB_NOTES.md).
 
 ---
 
@@ -134,12 +134,12 @@ QA sign-off notes for this checklist should mirror the same honesty: expectation
 
 | Gate | Owner | Result | Date | Evidence |
 |------|-------|--------|------|----------|
-| Scaffold smoke (§1) | Desktop | _TBD_ (no display lab) | 2026-09-12 | PHASE0_LAB_NOTES — P0-S1 not run |
-| Sidecar + logs (§2) | Desktop + QA | **Partial → near Pass** | 2026-09-12 | R1/R2/R5 **PASS**; R3 **Partial** (no WebView); R4 **TBD** |
-| Port ownership (§3) | Desktop + QA | Code-pass; lab TBD for foreign PORT_IN_USE | 2026-09-12 | Default :31416 + ownership in R1; R4/P2 foreign bind lab next |
-| Quit / no orphan (§4) | Desktop + QA | Code-pass; lab TBD (P0-Q1) | 2026-09-12 | Desktop R4/Q1 lab in flight |
-| Chip honesty (§6) | Desktop + QA | **Pass** (no Sharing claimed) | 2026-09-12 | Relay-only; Sharing N/A |
+| Scaffold smoke (§1) | Desktop | _TBD_ (no display lab) | 2026-09-19 | PHASE0_LAB_NOTES — P0-S1 not run |
+| Sidecar + logs (§2) | Desktop + QA | **Near Pass** | 2026-09-19 | R1/R2/R4/R5 **PASS**; R3 **Partial** (WebView strip) |
+| Port ownership (§3) | Desktop + QA | **PASS** (lab) | 2026-09-19 | Default :31416 + R4 foreign `PORT_IN_USE` before ownership |
+| Quit / no orphan (§4) | Desktop + QA | **PASS** (P0-Q1 lab); Q2 TBD | 2026-09-19 | `clear_owned_relay` → child gone, port free (`29dc0fa`) |
+| Chip honesty (§6) | Desktop + QA | **Pass** (no Sharing claimed) | 2026-09-19 | Relay-only; Sharing N/A |
 
-**QA lab re-score (`c0eddf0`):** P0-R1/R2/R5 **PASS**; P0-R3 **Partial**; P0-R4/Q1 open. No Sharing.
+**QA lab re-score (`29dc0fa`):** P0-R1/R2/R4/R5/Q1 **PASS**; P0-R3 **Partial**; no Sharing.
 
-**Exit:** All Yes-required rows Pass or Waived-with-ticket; Sharing still not claimable without three layers.
+**Exit:** All Yes-required rows Pass or Waived-with-ticket; Sharing still not claimable without three layers. Remaining Phase 0 soft gaps: R3 WebView strip, Q2 mid-start quit, S1 GUI launch.
