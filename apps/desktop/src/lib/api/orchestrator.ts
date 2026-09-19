@@ -39,3 +39,10 @@ export const runSession = (opts?: {
     routes: opts?.routes ?? null,
     port: opts?.port ?? null,
   });
+
+/**
+ * Window close / Quit: best-effort stop client + clear_owned_relay (epoch bump).
+ * Prefer this before destroy so UI can clear layers; Exit also teardowns as safety net.
+ */
+export const prepareQuit = (serial?: string | null) =>
+  invoke<RelayStatePayload>("prepare_quit", { serial: serial ?? null });

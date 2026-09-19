@@ -20,6 +20,7 @@ pub fn run() {
             orchestrator::stop_client,
             orchestrator::reset_tunnel,
             orchestrator::run_session,
+            orchestrator::prepare_quit,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

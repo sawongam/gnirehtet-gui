@@ -77,6 +77,8 @@ pub struct OrchestratorState {
     /// Bumped on each successful start and on intentional stop/teardown so crash
     /// watchers ignore expected exits (P0-R5).
     relay_epoch: AtomicU64,
+    /// Last serial we started/ran (best-effort stop on quit). Never kills foreign relays.
+    last_session_serial: Mutex<Option<String>>,
 }
 
 impl Default for OrchestratorState {
@@ -94,6 +96,7 @@ impl Default for OrchestratorState {
         Self {
             session: Mutex::new(SessionController::new(cfg)),
             relay_epoch: AtomicU64::new(0),
+            last_session_serial: Mutex::new(None),
         }
     }
 }
@@ -177,6 +180,21 @@ fn map_devices(devices: Vec<gnirehtet_controller::AdbDevice>) -> Vec<DeviceInfo>
             product: d.product,
         })
         .collect()
+}
+
+
+fn remember_session_serial(state: &OrchestratorState, serial: Option<&str>) {
+    if let Ok(mut slot) = state.last_session_serial.lock() {
+        *slot = serial.map(|s| s.to_string());
+    }
+}
+
+fn take_session_serial(state: &OrchestratorState) -> Option<String> {
+    state
+        .last_session_serial
+        .lock()
+        .ok()
+        .and_then(|mut g| g.take())
 }
 
 /// Invalidate in-flight crash watchers before killing the owned child.
@@ -332,9 +350,46 @@ fn snapshot_relay(session: &SessionController) -> RelayStatePayload {
     }
 }
 
-/// P0-Q1: tear down session-owned relay only. Never kills foreign processes or adb server.
+/// P0-Q1 Quit / window close: best-effort stop client, then clear owned relay.
+///
+/// Epoch bump first so pipe EOF / poll is **not** `RELAY_CRASHED`.
+/// Never kills foreign processes or the shared adb server.
 pub fn teardown_owned_relay(app: &AppHandle, state: &OrchestratorState, stage: &str) {
+    // Invalidate crash watchers before any kill (intentional stop ≠ RELAY_CRASHED).
     bump_relay_epoch(state);
+
+    // Best-effort device STOP for the last serial we started (DESKTOP_LIFECYCLE §5 Quit).
+    let serial = take_session_serial(state);
+    if let Some(ref s) = serial {
+        if let Ok(session) = state.session.lock() {
+            emit_log(
+                app,
+                "info",
+                "orchestrator",
+                format!("stage={stage} serial={s} stop_client_best_effort"),
+            );
+            match session.stop(Some(s.as_str())) {
+                Ok(()) => emit_log(
+                    app,
+                    "info",
+                    "orchestrator",
+                    format!("stage={stage} serial={s} stop_client success=true"),
+                ),
+                Err(e) => emit_log(
+                    app,
+                    "warn",
+                    "orchestrator",
+                    format!("stage={stage} serial={s} stop_client err={e}"),
+                ),
+            }
+        }
+    } else {
+        // No remembered serial — still try default-device stop (harmless if none).
+        if let Ok(session) = state.session.lock() {
+            let _ = session.stop(None);
+        }
+    }
+
     let Ok(mut session) = state.session.lock() else {
         return;
     };
@@ -348,6 +403,16 @@ pub fn teardown_owned_relay(app: &AppHandle, state: &OrchestratorState, stage: &
             "orchestrator",
             format!("stage={stage} port={port} owned=false skip_kill"),
         );
+        emit_relay_state(
+            app,
+            RelayStatePayload {
+                state: "relay_stopped".into(),
+                port: Some(port),
+                pid: None,
+                owned_by_session: false,
+                message: Some(format!("Teardown complete ({stage}, no owned relay)")),
+            },
+        );
         return;
     }
     emit_log(
@@ -355,7 +420,7 @@ pub fn teardown_owned_relay(app: &AppHandle, state: &OrchestratorState, stage: &
         "info",
         "orchestrator",
         format!(
-            "stage={stage} port={port} pid={} stopping_owned_relay",
+            "stage={stage} port={port} pid={} clear_owned_relay",
             pid.map(|p| p.to_string()).unwrap_or_else(|| "?".into())
         ),
     );
@@ -364,7 +429,7 @@ pub fn teardown_owned_relay(app: &AppHandle, state: &OrchestratorState, stage: &
         app,
         "info",
         "orchestrator",
-        format!("stage={stage} port={port} success=true"),
+        format!("stage={stage} port={port} success=true owned=false"),
     );
     emit_relay_state(
         app,
@@ -376,6 +441,23 @@ pub fn teardown_owned_relay(app: &AppHandle, state: &OrchestratorState, stage: &
             message: Some(format!("Teardown complete ({stage})")),
         },
     );
+}
+
+
+/// Explicit quit path for the UI (window close): stop client + clear owned relay.
+/// Same as Exit teardown; epoch bump prevents `RELAY_CRASHED` on intentional quit.
+#[tauri::command]
+pub fn prepare_quit(
+    app: AppHandle,
+    state: State<'_, OrchestratorState>,
+    serial: Option<String>,
+) -> OrchResult<RelayStatePayload> {
+    if let Some(s) = serial {
+        remember_session_serial(&state, Some(s.as_str()));
+    }
+    teardown_owned_relay(&app, state.inner(), "prepare_quit");
+    let session = lock_session(&state)?;
+    Ok(snapshot_relay(&session))
 }
 
 #[tauri::command]
@@ -681,8 +763,11 @@ pub fn start_client(
         "orchestrator",
         format!("stage=start serial={serial_label} port={listen}"),
     );
-    match session.start(serial.as_deref(), &opts) {
+    let start_result = session.start(serial.as_deref(), &opts);
+    drop(session); // release before last_session_serial lock (quit path)
+    match start_result {
         Ok(()) => {
+            remember_session_serial(&state, serial.as_deref());
             emit_log(
                 &app,
                 "info",
@@ -867,11 +952,15 @@ pub fn run_session(
             routes: routes_s,
             port: listen,
         };
-        if let Err(e) = session.start(serial.as_deref(), &vpn) {
+        let start_result = session.start(serial.as_deref(), &vpn);
+        let payload = snapshot_relay(&session);
+        drop(session); // release before last_session_serial lock (quit path)
+        if let Err(e) = start_result {
             let (code, message) = map_controller_err_stage(&e, "CLIENT_START_FAILED");
             emit_error_serial(&app, &code, message.clone(), serial.clone());
             return Err(OrchError::coded(code, message));
         }
+        remember_session_serial(&state, serial.as_deref());
         emit_log(
             &app,
             "info",
@@ -881,7 +970,6 @@ pub fn run_session(
                 serial.as_deref().unwrap_or("(default)")
             ),
         );
-        let payload = snapshot_relay(&session);
         emit_relay_state(&app, payload.clone());
         Ok(payload)
     }
