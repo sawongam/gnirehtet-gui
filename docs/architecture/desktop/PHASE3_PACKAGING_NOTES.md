@@ -1,23 +1,40 @@
 # Phase 3 — Packaging smoke notes
 
 **Date:** 2026-09-19 NPT  
-**Branch tip (pre-polish):** `d68435a`  
+**Branch tip (packaging follow-up):** see `dev` HEAD  
 **Lab host:** Linux x86_64 (box)
 
 ## Goal
 
-Try `npm run tauri build` (or document honest blockers) so Lead knows whether a release bundle is reachable on this box.
+Keep release packaging reachable on this box: deb/rpm smoke, documented sidecar enable path, AppImage deferred until linuxdeploy is fixed. **No MVP Done claim** — USB E2E still required (Sangam lab).
 
 ## Config snapshot
 
 | Item | Value |
 |------|--------|
-| `bundle.externalBin` | **`[]` (empty)** — intentional for CI/`cargo check` without committed binary |
+| `bundle.targets` | **`["deb", "rpm"]`** — AppImage excluded (linuxdeploy fail on this host) |
+| `bundle.externalBin` | **`[]` (empty)** — CI/`cargo check` safe without committed binary |
 | Sidecar drop-in on box | `apps/desktop/src-tauri/binaries/gnirehtet-x86_64-unknown-linux-gnu` (present, **not** embedded while externalBin empty) |
-| APK | `resources/gnirehtet.apk` via `bundle.resources` |
-| Docs | `apps/desktop/docs/SIDECAR.md` — set `"externalBin": ["binaries/gnirehtet"]` when shipping |
+| APK | `resources/gnirehtet.apk` via `bundle.resources` (pin **v2.5.1**) |
+| Docs | `apps/desktop/docs/SIDECAR.md` — enable recipe + pins |
 
-Runtime still resolves `GNIREHTET_BIN` → packaged sidecar → `binaries/gnirehtet-<triple>` → `PATH`.
+Runtime still resolves `GNIREHTET_BIN` → packaged sidecar / `binaries/gnirehtet-<triple>` → `PATH` `gnirehtet`. Compatible with controller defaults.
+
+### Upstream binary pins (packaging)
+
+| Host | Zip pin | Executable name in zip |
+|------|---------|------------------------|
+| Linux / Windows | **v2.5.1** | `gnirehtet` / `gnirehtet.exe` (**not** the zip folder name) |
+| macOS | **v2.2.1** (upstream prebuilt exception) | `gnirehtet` — do not silently mix with v2.5.1 Linux/Win |
+
+## Enable `externalBin` for real installers (reversible)
+
+Default stays empty so cargo check does not require the sidecar.
+
+1. Drop triple-suffixed binary (see SIDECAR.md).  
+2. In `apps/desktop/src-tauri/tauri.conf.json`, set `"externalBin": ["binaries/gnirehtet"]`.  
+3. Run `npm run tauri build` — deb/rpm should embed the sidecar.  
+4. Revert to `"externalBin": []` for CI/dev-safe default.
 
 ## Smoke results (2026-09-19 NPT)
 
@@ -29,13 +46,14 @@ Runtime still resolves `GNIREHTET_BIN` → packaged sidecar → `binaries/gnireh
 | Rust release link (`gnirehtet-desktop`) | **PASS** → `target/release/gnirehtet-desktop` |
 | Bundle `.deb` | **PASS** → `target/release/bundle/deb/gnirehtet-gui_0.1.0_amd64.deb` |
 | Bundle `.rpm` | **PASS** → `target/release/bundle/rpm/gnirehtet-gui-0.1.0-1.x86_64.rpm` |
-| Bundle AppImage | **FAIL** — `failed to run linuxdeploy` (Tauri still exits non-zero when `targets: "all"`) |
+| Bundle AppImage | **DEFERRED** — previously **FAIL** (`failed to run linuxdeploy` under `targets: "all"`). Config now omits appimage. |
 
 ### Honest blockers / limits
 
-1. **AppImage / linuxdeploy** — WebView compile/link OK on this host; AppImage packaging failed at `linuxdeploy`. Deb/rpm succeeded. For CI, prefer `bundle.targets: ["deb"]` (or exclude appimage) until linuxdeploy is fixed/available.
-2. **`externalBin: []`** — release **binary** builds, but the installer **does not embed** the gnirehtet sidecar. Shipping a usable tether bundle still requires enabling externalBin + triple-suffixed binary (SIDECAR.md).
+1. **AppImage / linuxdeploy** — deferred. Deb/rpm are the supported Linux installer targets until linuxdeploy is fixed/available. Do not set `targets: "all"` on this host.
+2. **`externalBin: []`** — release **binary** builds, but the installer **does not embed** the gnirehtet sidecar until the enable recipe above is applied with a triple-suffixed file present.
 3. **No gnirehtet-relay dep** — confirmed; Desktop links controller/adb only, spawns external binary.
+4. **USB E2E / Sharing** — not claimed here; see `PHASE3_ACCEPTANCE.md`. Never invent Sharing from handshake probe alone.
 
 ## Phase 3 product wiring (same land)
 
@@ -49,5 +67,5 @@ Runtime still resolves `GNIREHTET_BIN` → packaged sidecar → `binaries/gnireh
 cd apps/desktop
 npm run check
 cargo check -p gnirehtet-desktop
-npm run tauri build   # expect deb/rpm OK; AppImage may fail on linuxdeploy
+npm run tauri build   # deb + rpm only; AppImage not in targets
 ```
