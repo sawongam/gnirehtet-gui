@@ -1,7 +1,7 @@
 # Theme — gnirehtet-gui
 
 **Audience:** Desktop Engineer  
-**Status:** Dark-first design tokens for ASAP polish  
+**Status:** **Light-first** design tokens (Sangam request 2026-09-20)  
 **Pairs with:** `DESIGN_SYSTEM.md` (shadcn-svelte + Tailwind `class` strategy)
 
 Cross-ref: `SHELL_SCREENS.md`, `EVENT_STATUS_MAP.md` (layer health semantics).
@@ -10,11 +10,11 @@ Cross-ref: `SHELL_SCREENS.md`, `EVENT_STATUS_MAP.md` (layer health semantics).
 
 ## 1. Principles
 
-- **Dark-first.** Utilities live in dark; light theme optional Phase 1.1 only.  
-- **Dense technical.** Linear / Raycast / scrcpy — not Bootstrap admin, not SaaS marketing.  
-- **Restrained color.** Accent is teal/cyan-leaning technical — **not** generic Material blue (`#1a73e8` in current `+page.svelte` must go).  
+- **Light-first.** Default shell is a bright, clean technical utility — not a dark IDE clone. Dark remains a supported alternate via `class="dark"`, not the MVP boot default.  
+- **Nice, restrained color.** Soft cool-gray canvas + white cards + teal accent. Feels closer to Linear light / Apple Settings than Bootstrap or Material.  
+- **Dense technical.** scrcpy / Raycast polish — no marketing heroes, no rainbow chrome.  
 - **Semantics over decoration.** Success / warning / danger / info map to Relay · Tunnel · Device VPN and ERROR_UX banners.  
-- **Elevation = 1 border + soft shadow.** No heavy glass / neon.
+- **Elevation = soft shadow + hairline border.** Airy but still tool-like.
 
 ---
 
@@ -24,10 +24,9 @@ Cross-ref: `SHELL_SCREENS.md`, `EVENT_STATUS_MAP.md` (layer health semantics).
 |--|-------|
 | Default size | ~**920 × 640** |
 | Minimum | ~**720 × 520** |
-| Title (`app.html`) | Product name (`gnirehtet-gui`) — **fix** current “Tauri + SvelteKit + Typescript App” |
+| Title (`app.html`) | Product name (`gnirehtet-gui`) — **fix** “Tauri + SvelteKit + Typescript App” |
 | Direction chrome | Always visible: **Internet: This PC → Phone** |
-
-Set via Tauri window config + CSS; do not rely on browser chrome.
+| Default color-scheme | **`light`** |
 
 ---
 
@@ -54,99 +53,112 @@ Line-height ~1.4–1.45. Avoid 18px+ body in the shell.
 
 ## 4. Spacing & shape
 
-- **Base unit:** 4px (`space-1` = 4, `space-2` = 8, …).  
-- **Radius:** **6–8px** for buttons, cards, banners. **Not** pill-soup (`border-radius: 999px` only for tiny status dots if needed).  
-- **Elevation:** `1px` border (`--border`) + optional `box-shadow: 0 1px 2px rgba(0,0,0,0.35)`.  
+- **Base unit:** 4px.  
+- **Radius:** **8px** cards/buttons; **6px** chips/inputs. Avoid pill-soup.  
+- **Elevation (light):** `0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04)`.  
 - **Gaps:** shell sections `12–16px`; tight action clusters `8px`.
 
 ---
 
-## 5. Color tokens
+## 5. Color story (light)
 
-Semantic names Desktop should map into Tailwind / shadcn CSS variables.
+| Role | Hex | Feel |
+|------|-----|------|
+| Canvas | `#F4F7FB` | Soft cool paper (not stark #fff wall) |
+| Card / elevated | `#FFFFFF` | Clean panels |
+| Muted well | `#EEF2F7` | Logs, nested rows |
+| Border | `#D8E0EA` | Soft cool edge |
+| Text | `#0F172A` | Near-slate, readable |
+| Muted text | `#64748B` | Secondary |
+| Accent | `#0D9488` | Teal — CTA / focus (works on white) |
+| Accent soft | `#CCFBF1` | Selected device / chip fill |
+| Success | `#059669` | Sharing / healthy layer |
+| Warning | `#D97706` | Waiting VPN / unauthorized |
+| Danger | `#DC2626` | Errors / Interrupted |
+| Info | `#0284C7` | Tips / relay port |
+
+Accent on light is **deeper teal** (`#0D9488`) so contrast holds; dark mode may use brighter `#2DD4BF`.
+
+---
+
+## 6. Token tables
 
 ### Surfaces
 
-| Token | Intent |
-|-------|--------|
-| `--bg` | App background |
-| `--bg-elevated` | Cards, panels, title bar strip |
-| `--bg-muted` | Log pane, nested wells, hover row |
+| Token | Light intent |
+|-------|--------------|
+| `--bg` | App canvas |
+| `--bg-elevated` | Cards, panels, title strip |
+| `--bg-muted` | Log pane, nested wells, hover |
 | `--border` | Default edges |
-| `--border-subtle` | Dividers inside panels |
+| `--border-subtle` | Inner dividers |
 
 ### Text
 
 | Token | Intent |
 |-------|--------|
-| `--fg` | Primary text |
+| `--fg` | Primary |
 | `--fg-muted` | Secondary / hints |
-| `--fg-subtle` | Labels, uppercase microcopy |
+| `--fg-subtle` | Micro labels |
 
-### Accent (primary CTA)
+### Accent & semantic
 
-| Token | Example | Intent |
-|-------|---------|--------|
-| `--accent` | `#2DD4BF` | Run / primary recovery — teal technical |
-| `--accent-fg` | `#042F2E` | Text on accent fill |
-| `--accent-muted` | teal @ ~20% | Soft selected device / focus ring |
+| Token | Light example | Use |
+|-------|---------------|-----|
+| `--accent` | `#0D9488` | Run / primary |
+| `--accent-fg` | `#F0FDFA` | Text on accent |
+| `--accent-muted` | teal wash | Selection / focus ring |
+| `--success` | `#059669` | Sharing chip; healthy |
+| `--warning` | `#D97706` | Waiting / Starting |
+| `--danger` | `#DC2626` | Error / TUNNEL_LOST |
+| `--info` | `#0284C7` | Informational |
 
-### Semantic (banners + chips)
+### Layer accents (restrained tints)
 
-| Token | Example | Use |
-|-------|---------|-----|
-| `--success` | `#34D399` | Sharing chip; healthy layer |
-| `--warning` | `#FBBF24` | Waiting VPN, Unauthorized, Starting |
-| `--danger` | `#F87171` | Error chip, TUNNEL_LOST, crashes |
-| `--info` | `#67E8F9` | Neutral informational (relay port tip) |
+| Layer | Token | Light lean |
+|-------|-------|------------|
+| Relay | `--layer-relay` | Sky / slate-blue |
+| Tunnel | `--layer-tunnel` | Soft violet |
+| Device VPN | `--layer-vpn` | Teal (aligns with accent when healthy) |
 
-### Layer accents (restrained)
-
-Distinct enough to scan; not rainbow.
-
-| Layer | Token | Hue lean |
-|-------|-------|----------|
-| Relay | `--layer-relay` | Cool blue-grey / cyan muted |
-| Tunnel | `--layer-tunnel` | Violet-grey muted |
-| Device VPN | `--layer-vpn` | Teal muted (aligns with accent when healthy) |
-
-Healthy state still uses `--success` for the **status word**; layer tint is background/border only.
+Healthy **status word** still uses `--success`; layer tint is border/bg only.
 
 ---
 
-## 6. Pasteable CSS variables
+## 7. Pasteable CSS variables
 
-Desktop can paste into global CSS (then wire Tailwind `@theme` / shadcn vars). Dark is default; light is stub for Phase 1.1.
+**MVP boot: light default** — do **not** put `class="dark"` on `<html>` unless user toggles it.
 
 ```css
 :root {
-  /* Light optional — Phase 1.1; prefer .dark as default in app.html */
-  --bg: #f4f4f5;
-  --bg-elevated: #ffffff;
-  --bg-muted: #e4e4e7;
-  --border: #d4d4d8;
-  --border-subtle: #e4e4e7;
+  color-scheme: light;
 
-  --fg: #18181b;
-  --fg-muted: #52525b;
-  --fg-subtle: #71717a;
+  --bg: #f4f7fb;
+  --bg-elevated: #ffffff;
+  --bg-muted: #eef2f7;
+  --border: #d8e0ea;
+  --border-subtle: #e8eef5;
+
+  --fg: #0f172a;
+  --fg-muted: #64748b;
+  --fg-subtle: #94a3b8;
 
   --accent: #0d9488;
   --accent-fg: #f0fdfa;
-  --accent-muted: rgba(13, 148, 136, 0.15);
+  --accent-muted: rgba(13, 148, 136, 0.12);
 
   --success: #059669;
   --warning: #d97706;
   --danger: #dc2626;
-  --info: #0891b2;
+  --info: #0284c7;
 
-  --layer-relay: #64748b;
-  --layer-tunnel: #7c6f9a;
-  --layer-vpn: #0f766e;
+  --layer-relay: #0284c7;
+  --layer-tunnel: #7c3aed;
+  --layer-vpn: #0d9488;
 
   --radius: 8px;
   --radius-sm: 6px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
 
   --font-ui: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -155,6 +167,8 @@ Desktop can paste into global CSS (then wire Tailwind `@theme` / shadcn vars). D
 .dark,
 :root.dark,
 html.dark {
+  color-scheme: dark;
+
   --bg: #0c0e12;
   --bg-elevated: #141820;
   --bg-muted: #1a1f29;
@@ -182,7 +196,6 @@ html.dark {
 }
 
 html {
-  color-scheme: dark;
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-ui);
@@ -197,33 +210,37 @@ code,
 }
 ```
 
-**MVP boot:** put `class="dark"` on `<html>` in `app.html` and set `color-scheme: dark`.
+shadcn-svelte init: prefer **zinc/slate base + custom accent override** to these CSS vars (map `--primary` → `--accent`).
 
 ---
 
-## 7. Component color mapping (quick)
+## 8. Component color mapping (quick)
 
 | UI | Tokens |
 |----|--------|
-| Run (primary) | `bg: accent`, `fg: accent-fg` |
-| Stop | `destructive` / danger outline or solid when session active |
-| Repair / Install / Refresh | `secondary` or `ghost` — never equal weight to Run |
+| Shell background | `--bg` |
+| Cards / device list / session column | `--bg-elevated` + `--shadow` + `--border` |
+| Run (primary) | fill `--accent`, text `--accent-fg` |
+| Stop | danger outline or solid when session active |
+| Repair / Install / Refresh | secondary / ghost — never equal weight to Run |
+| Selected device row | `--accent-muted` border/bg |
 | Session chip Sharing | success |
-| Session chip Waiting / Starting / Stopping | warning |
-| Session chip Interrupted / Error | danger |
-| Alert ERROR_UX | border + bg tint from danger/warning; always show `[CODE]` |
-| Log pane | `bg-muted`, mono 12px |
+| Waiting / Starting / Stopping | warning |
+| Interrupted / Error | danger |
+| ERROR_UX alert | tinted bg from danger/warning; always show `[CODE]` |
+| Log pane | `--bg-muted`, mono 12px |
 
 ---
 
-## 8. What not to do
+## 9. What not to do
 
+- Default to dark after this revision.  
 - Keep Material `#1a73e8` primary.  
-- Pill chips for every status row.  
-- Large marketing gradients / hero headers.  
-- Light-only default.  
+- Pure `#FFFFFF` full-window with no canvas tint (looks unfinished).  
+- Neon accents / heavy gradients.  
+- Pill chips for every status.  
 - Color-alone status (always pair with text from `EVENT_STATUS_MAP` / `COPY_RULES`).
 
 ---
 
-*Tokens only. Layout states → `SHELL_SCREENS.md`. Component map → `COMPONENT_INVENTORY.md`.*
+*Tokens only. Layout → `SHELL_SCREENS.md`. Components → `COMPONENT_INVENTORY.md`.*

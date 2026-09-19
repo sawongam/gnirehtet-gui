@@ -39,7 +39,7 @@ Hard constraints:
 | | |
 |--|--|
 | **What** | npm-installed component + theme package; CSS-variable themes (`data-theme`), app-kit patterns (shells, drawers, nav). |
-| **Why reject** | Too opinionated / app-kit for a **single-window dense utility**. Theme engine + preset look drifts toward SaaS dashboards. Customizing away from Skeleton chrome costs more than owning a small shadcn set. Runtime theme switching is not an MVP need (dark-first; light = Phase 1.1). |
+| **Why reject** | Too opinionated / app-kit for a **single-window dense utility**. Theme engine + preset look drifts toward SaaS dashboards. Customizing away from Skeleton chrome costs more than owning a small shadcn set. Runtime theme switching is not an MVP need (light-first; dark = optional toggle). |
 
 ### C. Melt UI / Bits UI + custom tokens (headless + bespoke CSS) — **REJECTED for ASAP**
 
@@ -50,6 +50,12 @@ Hard constraints:
 
 ---
 
+## 2.1 Theme default
+
+**Light-first** (Sangam, 2026-09-20). Boot without `html.dark`. Tokens and pasteable CSS live in `THEME.md` (canvas `#F4F7FB`, cards white, accent `#0D9488`). Dark is an optional `class="dark"` alternate — do not ship dark as the default.
+
+---
+
 ## 3. Recommendation: A (shadcn-svelte)
 
 1. **Owns components** — restyle for density without library forks.  
@@ -57,7 +63,7 @@ Hard constraints:
 3. **Tailwind density control** — `h-8`, `text-xs`, `gap-1` match utility aesthetic; no Bootstrap-admin defaults.  
 4. **Proven Tauri templates** — reduces webview + Vite + Svelte 5 friction.  
 5. **Incremental** — wrap existing `+page.svelte` actions; do **not** rewrite orchestrator stores (`sessionLayers`, `errorUx`, device poll).  
-6. **Look target** — zinc/neutral surfaces + restrained teal accent (`THEME.md`) reads as scrcpy/Linear, not Material blue admin.
+6. **Look target** — light cool-gray canvas + white cards + teal accent (`THEME.md`) — Linear-light / scrcpy polish, not Material blue admin.
 
 Desktop may later extract Bits-only if needed; start with shadcn-svelte wrappers.
 
@@ -73,7 +79,8 @@ npm install -D tailwindcss @tailwindcss/vite
 
 # 2. shadcn-svelte init (creates components.json, CSS vars, utils)
 npx shadcn-svelte@latest init
-# When prompted: base color zinc/neutral · style default · CSS variables yes · aliases $lib/components
+# When prompted: base color zinc/slate · style default · CSS variables yes · aliases $lib/components
+# Override primary/accent CSS vars to THEME.md teal; boot **light** (no html.dark by default)
 
 # 3. Add MVP primitives only
 npx shadcn-svelte@latest add button badge card alert separator collapsible scroll-area tooltip dialog

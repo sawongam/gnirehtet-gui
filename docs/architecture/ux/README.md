@@ -8,7 +8,7 @@ Tip context: `d8c8392` on `dev`. Stack: Tauri 2 + Svelte 5 + SvelteKit.
 | Doc | Purpose |
 |-----|---------|
 | [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) | Compare shadcn-svelte / Skeleton / Melt+Bits; **recommend shadcn-svelte + Tailwind** |
-| [THEME.md](./THEME.md) | Dark-first tokens, type, window size, pasteable CSS vars |
+| [THEME.md](./THEME.md) | Light-first tokens, type, window size, pasteable CSS vars |
 | [SHELL_SCREENS.md](./SHELL_SCREENS.md) | Single-window wireframe + Idle→Sharing states |
 | [COMPONENT_INVENTORY.md](./COMPONENT_INVENTORY.md) | shadcn primitives → Run/Stop/Repair/Install/Relay/Refresh |
 | [COPY_RULES.md](./COPY_RULES.md) | Chip verbs, Run/Stop decision, ban Connected / HANDSHAKE jargon |
