@@ -36,7 +36,7 @@ Concrete checklist Desktop / Rust must pass for the **first runnable slice**. No
 |----|-------|------|------|-------------------------------------|
 | P0-R1 | Spawn relay sidecar (`gnirehtet relay` or equivalent managed child) | Child starts; orchestrator records PID/port; `RelayState` can become listening/ready when bind succeeds | UI claims relay up with no process | **PASS** — owns :31416, PID recorded |
 | P0-R2 | Stop owned sidecar | `stop_relay` / Stop path terminates **our** child; port not left listening by our PID | Orphan child after Stop | **PASS** — stop ok, port free |
-| P0-R3 | Log stream | Sidecar stdout/stderr line-buffered → `LogLine` events → UI log strip appends | Logs only in terminal; UI never sees lines; or log alone flips Sharing | **Partial** — pipes drained / pump wired; WebView strip not labbed |
+| P0-R3 | Log stream | Sidecar stdout/stderr line-buffered → `LogLine` events → UI log strip appends | Logs only in terminal; UI never sees lines; or log alone flips Sharing | **PASS** — WebView Logs strip showed orchestrator + child relay LogLines (`DISPLAY=:12`) |
 | P0-R4 | Foreign process policy | Process we did not start on :31416 is **not** killed; surface `PORT_IN_USE` / foreign relay per DESKTOP_LIFECYCLE | Quiet kill of foreign `gnirehtet` | **PASS** — foreign bind → `PORT_IN_USE`, `owns_relay=false`, foreign not killed (both start paths) |
 | P0-R5 | Relay death UI SLA | If our owned relay exits/crashes after ownership, UI reflects Error / Relay Error with `RELAY_CRASHED` (ERROR_UX) within **≤3s** | Stale healthy/Sharing >3s | **PASS** (headless) — `poll_owned_relay` ≤3s after SIGKILL; UI event path code-pass |
 
@@ -134,12 +134,12 @@ QA sign-off notes for this checklist should mirror the same honesty: expectation
 
 | Gate | Owner | Result | Date | Evidence |
 |------|-------|--------|------|----------|
-| Scaffold smoke (§1) | Desktop | _TBD_ (no display lab) | 2026-09-19 | PHASE0_LAB_NOTES — P0-S1 not run |
-| Sidecar + logs (§2) | Desktop + QA | **Near Pass** | 2026-09-19 | R1/R2/R4/R5 **PASS**; R3 **Partial** (WebView strip) |
+| Scaffold smoke (§1) | Desktop | **PASS** (P0-S1) | 2026-09-19 | PHASE0_LAB_NOTES — cold launch DISPLAY=:12; screenshot |
+| Sidecar + logs (§2) | Desktop + QA | **PASS** | 2026-09-19 | R1/R2/R3/R4/R5 **PASS**; R3 WebView strip labbed |
 | Port ownership (§3) | Desktop + QA | **PASS** (lab) | 2026-09-19 | Default :31416 + R4 foreign `PORT_IN_USE` before ownership |
 | Quit / no orphan (§4) | Desktop + QA | **PASS** (P0-Q1 + P0-Q2) | 2026-09-19 | Q1 `29dc0fa`; Q2 mid-start quit `1868893` |
 | Chip honesty (§6) | Desktop + QA | **Pass** (no Sharing claimed) | 2026-09-19 | Relay-only; Sharing N/A |
 
-**QA lab re-score (`1868893`):** P0-R1/R2/R4/R5/Q1/Q2 **PASS**; P0-R3 **Partial**; no Sharing.
+**QA lab re-score (`1868893` + GUI DISPLAY=:12):** P0-R1/R2/R3/R4/R5/Q1/Q2/S1 **PASS**; no Sharing.
 
-**Exit:** All Yes-required rows Pass or Waived-with-ticket; Sharing still not claimable without three layers. Remaining Phase 0 soft gaps: R3 WebView strip, S1 GUI launch.
+**Exit:** Phase 0 soft gaps R3/Q2/S1 closed. Sharing still not claimable without three layers. Do not expand into Phase 1 device list from this gate set.

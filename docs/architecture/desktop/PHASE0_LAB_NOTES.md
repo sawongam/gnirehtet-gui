@@ -2,14 +2,14 @@
 
 | Field | Value |
 |-------|-------|
-| Status | Lab evidence (headless) |
+| Status | Lab evidence (headless + DISPLAY=:12 GUI) |
 | Date | 2026-09-19 (NPT) |
 | Branch | `dev` |
 | Host | Linux x86_64 (lab box) |
 | Upstream pin | Genymobile/gnirehtet **v2.5.1** / `gnirehtet-rust-linux64-v2.5.1.zip` |
 | Related | [PHASE0_ACCEPTANCE.md](../qa/PHASE0_ACCEPTANCE.md), [SIDECAR.md](../../../apps/desktop/docs/SIDECAR.md), [resources/README.md](../../../resources/README.md) |
 
-Headless ownership lab for Desktop Phase 0 sidecar / APK drop-ins. **No full GUI / display required.** Binaries are **gitignored** — drop in locally for lab/CI only.
+Headless ownership lab for Desktop Phase 0 sidecar / APK drop-ins, plus optional DISPLAY=:12 GUI legs (R3/S1). Binaries are **gitignored** — drop in locally for lab/CI only.
 
 ## Sidecar + APK drop-in (lab only)
 
@@ -115,9 +115,9 @@ RESULT=PASS
 | **P0-Q1** Quit / clear owned | **PASS** | Owned relay → `clear_owned_relay()` → `owns=false`, child gone, port free; `poll` is `None`; adb server PID set unchanged (none present in this lab → `adb_note=no_adb_server_present_lab_ok`) |
 | **P0-Q2** Mid-start quit | **PASS** | See lab run below (`1868893`) — immediate `clear_owned_relay` + Drop leg; no orphan, port free |
 | **APK path / APK_MISSING** | **PASS** | Bundled APK resolved; `install` with missing path → `APK_MISSING` |
-| P0-R3 LogLine UI | **Partial** | Child stdout drained in lab; Desktop sole pump wired in orchestrator (`start_relay` / `run_session`) — full WebView strip not exercised headless |
-| P0-S1 GUI launch | **Not run** | No display in this lab |
-| Sharing claims | **N/A** | Not claimed (relay-only) |
+| **P0-R3** LogLine UI strip | **PASS** | See GUI lab below — WebView Logs pane appended orchestrator + child `relay:` LogLines after Start Relay |
+| **P0-S1** GUI cold launch | **PASS** | See GUI lab below — `npm run tauri dev` on DISPLAY=:12; window 960×720; SIGTERM quit; no orphan |
+| Sharing claims | **N/A** | Not claimed (relay-only; ADB missing on lab host) |
 
 ## Lab run — P0-Q2 mid-start quit (2026-09-19 NPT)
 
@@ -148,7 +148,54 @@ RESULT=PASS
 |----|--------|----------|
 | **P0-Q2** Mid-start quit / no orphan | **PASS** | Immediate clear after spawn (no drain) → child gone, port free; Drop leg also clears owned child |
 
+
+## Lab run — P0-R3 + P0-S1 GUI (2026-09-19 NPT, DISPLAY=:12)
+
+Commands:
+
+```bash
+export DISPLAY=:12
+export GNIREHTET_BIN="$PWD/apps/desktop/src-tauri/binaries/gnirehtet-$(rustc -vV | sed -n 's/^host: //p')"
+export GNIREHTET_APK="$PWD/resources/gnirehtet.apk"
+cd apps/desktop && npm run tauri dev
+# then: Start Relay in UI → observe Logs strip → Stop Relay → quit (SIGTERM / window close)
+```
+
+### P0-S1 — cold launch smoke — **PASS**
+
+| Check | Evidence |
+|-------|----------|
+| Window opens | `xwininfo` / screenshot: title `gnirehtet-gui`, 960×720, Map State IsViewable |
+| Process healthy | `target/debug/gnirehtet-desktop` running; orchestrator stderr: bin+apk present=true |
+| Shell renders | Idle-capable UI: ADB/Relay chips, Devices, Relay, Logs panels |
+| Quit clean | Stop Relay freed :31416; SIGTERM desktop → exit 0; no `gnirehtet relay` orphan; no window left |
+
+Screenshot: [`phase0_s1_cold_launch.png`](./phase0_s1_cold_launch.png) (cold Idle; Logs empty before Start).
+
+Limits: lab host has no `adb` on PATH → UI correctly surfaces `ADB_MISSING` (not a Phase 0 S1 fail). Alt+F4 did not dismiss window in this WM; SIGTERM used for quit.
+
+### P0-R3 — WebView LogLine strip — **PASS**
+
+After clicking **Start Relay**:
+
+- Chip: `RELAY running :31416 owned`
+- Message: `Relay process started (session-owned)`
+- Child: `gnirehtet … relay -p 31416` listening on 127.0.0.1:31416
+- **Logs** pane appended (WebView listen on `LogLine`):
+
+```text
+[info] orchestrator: stage=start_relay port=31416 spawning
+[info] orchestrator: stage=start_relay port=31416 pid=2454076 owned=true
+[info] relay: … INFO Main: Starting relay server on port 31416...
+[info] relay: … INFO Relay: Relay server started
+```
+
+Screenshot: [`phase0_r3_logline_strip.png`](./phase0_r3_logline_strip.png).
+
+Proven end-to-end: sidecar stdout → Desktop sole `spawn_relay_stdio_pump` → `app.emit("LogLine")` → Svelte `listen("LogLine")` → Logs strip append. No Sharing claimed.
+
 ## Prior lab run (2026-09-12)
+
 
 R1/R2/R5 + APK_MISSING **PASS** (pre-R4/Q1). See git history / earlier notes on that date; superseded by the 2026-09-19 run above for R4/Q1.
 
