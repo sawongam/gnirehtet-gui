@@ -6,11 +6,24 @@ This repository is the **product home**. Upstream gnirehtet remains a **pinned d
 
 ## Status
 
-Early architecture / planning. **Working tree is local-first for now** (GitHub push deferred). Default integration branch: `dev` (authored as `sawongam`). Baseline branch: `master`.
+**Release candidate packaging** on branch `dev` (local-first; GitHub sync deferred). Baseline branch: `master`. Authored as `sawongam`.
 
-Implementation: **Phase 0 desktop scaffold** lives under `apps/desktop` (Tauri 2 + Svelte/TS).
-Rust Phase 1 crates land under `crates/` (`gnirehtet-adb`, `gnirehtet-relay`, `gnirehtet-cli`).
-The GUI does **not** link `relaylib` — it spawns stock `gnirehtet` via externalBin/PATH.
+- **Not** MVP Done — USB E2E on a real device still required before any Sharing / Done claim.
+- Linux: `.deb` / `.rpm` with embedded Genymobile **v2.5.1** sidecar + APK (AppImage deferred).
+- Windows: NSIS/MSI recipe documented (build on a Windows host).
+- macOS packaging deferred this slice.
+
+### First-run (Linux .deb)
+
+See **[`docs/architecture/desktop/RC_PACKAGING.md`](docs/architecture/desktop/RC_PACKAGING.md)** for artifacts, pins, and install steps. Short path:
+
+1. Install the RC `.deb` from the release/lab bundle path documented there.
+2. Ensure **`adb` is on `PATH`** (platform-tools). Do not rely on a bundled adb for MVP.
+3. Launch the app, authorize the device, then Install → Run. Sharing is only claimed when Relay + Tunnel + Device VPN are healthy.
+
+Override paths only if needed: `ADB`, `GNIREHTET_BIN`, `GNIREHTET_APK`.
+
+### Dev
 
 ```bash
 cd apps/desktop && npm install && npm run tauri dev
@@ -19,17 +32,17 @@ cd apps/desktop && npm install && npm run tauri dev
 
 See `apps/desktop/README.md`, `apps/desktop/docs/SIDECAR.md`, `resources/README.md`.
 
-
 ## Docs
 
 | Path | Owner |
 |------|--------|
 | [`docs/architecture/`](docs/architecture/) | Lead architecture, MVP, roadmap, migration |
+| [`docs/architecture/desktop/`](docs/architecture/desktop/) | Desktop shell, RC packaging, Phase 0–3 acceptance |
 | [`docs/architecture/rust/`](docs/architecture/rust/) | Rust crate structure, concurrency, refactor plan |
 
 ## Upstream pin
 
-Planning docs are pinned to Genymobile/gnirehtet **`1eb2e58`** / **v2.5.1** unless an ADR updates the pin.
+Planning + Linux/Windows RC sidecars are pinned to Genymobile/gnirehtet **v2.5.1** / **`1eb2e58`** unless an ADR updates the pin. Do not silently mix older macOS prebuilt pins into Linux/Win packages.
 
 ## License
 
