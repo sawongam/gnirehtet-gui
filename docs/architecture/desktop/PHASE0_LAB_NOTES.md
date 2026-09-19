@@ -44,7 +44,7 @@ cargo run -p gnirehtet-controller --example phase0_lab_relay
 
 Optional: `PHASE0_SKIP_CRASH=1` skips the mid-run kill / `poll_owned_relay` leg (R5).
 
-Gates exercised in one run: **P0-R1**, **P0-R2**, **P0-R4**, **P0-R5**, **P0-Q1**, **APK_MISSING**.
+Gates exercised in one run: **P0-R1**, **P0-R2**, **P0-R4**, **P0-R5**, **P0-Q1**, **P0-Q2**, **APK_MISSING**.
 
 ## Lab run (2026-09-19 NPT)
 
@@ -113,10 +113,40 @@ RESULT=PASS
 | **P0-R4** Foreign PORT_IN_USE | **PASS** | Foreign `TcpListener` on ephemeral port → both `start_relay_with_stdio` and `start_relay` return `PortInUse` / UX `PORT_IN_USE`; `owns_relay=false`; foreign still holds port (not killed) |
 | **P0-R5** Crash poll ≤3s (lab) | **PASS** | `kill -9` mid-run → `poll_owned_relay` → exited, ownership cleared within 3s |
 | **P0-Q1** Quit / clear owned | **PASS** | Owned relay → `clear_owned_relay()` → `owns=false`, child gone, port free; `poll` is `None`; adb server PID set unchanged (none present in this lab → `adb_note=no_adb_server_present_lab_ok`) |
+| **P0-Q2** Mid-start quit | **PASS** | See lab run below (`1868893`) — immediate `clear_owned_relay` + Drop leg; no orphan, port free |
 | **APK path / APK_MISSING** | **PASS** | Bundled APK resolved; `install` with missing path → `APK_MISSING` |
 | P0-R3 LogLine UI | **Partial** | Child stdout drained in lab; Desktop sole pump wired in orchestrator (`start_relay` / `run_session`) — full WebView strip not exercised headless |
 | P0-S1 GUI launch | **Not run** | No display in this lab |
 | Sharing claims | **N/A** | Not claimed (relay-only) |
+
+## Lab run — P0-Q2 mid-start quit (2026-09-19 NPT)
+
+Commit: **`1868893`** (`test: add Phase 0 Q2 mid-start quit orphan lab`).
+
+Command: `./scripts/phase0_lab_relay.sh`
+
+Example-only headless: begin `start_relay_with_stdio`, then immediately `clear_owned_relay` (no pipe drain); second leg Drop session while stdio still held.
+
+```text
+P0-Q2_owns_before=true
+P0-Q2_pid=2445869
+P0-Q2_port=31416
+P0-Q2_owns_after_clear=false
+P0-Q2_poll_after_clear_is_none=true
+P0-Q2_process_gone=true
+P0-Q2_port_free=true
+P0-Q2_drop_leg_pid=2445874
+P0-Q2_drop_leg_port=31416
+P0-Q2_drop_leg_process_gone=true
+P0-Q2_drop_leg_port_free=true
+P0-Q2_pass=true
+gate_Q2=true
+RESULT=PASS
+```
+
+| ID | Result | Evidence |
+|----|--------|----------|
+| **P0-Q2** Mid-start quit / no orphan | **PASS** | Immediate clear after spawn (no drain) → child gone, port free; Drop leg also clears owned child |
 
 ## Prior lab run (2026-09-12)
 
@@ -124,7 +154,7 @@ R1/R2/R5 + APK_MISSING **PASS** (pre-R4/Q1). See git history / earlier notes on 
 
 ## Code hooks exercised
 
-- `SessionController::start_relay` / `start_relay_with_stdio` / `stop_relay` / `clear_owned_relay` / `poll_owned_relay`
+- `SessionController::start_relay` / `start_relay_with_stdio` / `stop_relay` / `clear_owned_relay` / `poll_owned_relay` / Drop (Q2)
 - `probe_relay_port` → `ControllerError::PortInUse` / UX `PORT_IN_USE` (foreign bind; no ownership)
 - `ControllerConfig` / `GNIREHTET_BIN` + sidecar drop-in search
 - `AdbConfig` / `GNIREHTET_APK` + `resources/gnirehtet.apk` search; `CommandExecutionError::ApkMissing`
