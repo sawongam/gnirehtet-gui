@@ -93,7 +93,7 @@ const TABLE: Record<string, Omit<ErrorUxCopy, "code">> = {
     title: "Waiting for VPN permission",
     explanation:
       "Android must show a Connection request. The desktop cannot tap it. Do not treat this as Sharing yet.",
-    recoveryHint: "Allow on phone · I’ve allowed it · Stop.",
+    recoveryHint: "Allow on phone.",
   },
   START_TIMEOUT: {
     title: "Start timed out",

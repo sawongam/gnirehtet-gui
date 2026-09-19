@@ -40,9 +40,11 @@
 <button
   type="button"
   class={cn(
-    "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-muted disabled:text-fg-muted disabled:opacity-100 disabled:shadow-none disabled:border-border disabled:hover:bg-bg-muted disabled:hover:opacity-100",
+    "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors",
     variants[variant],
     sizes[size],
+    // After variants so disabled look wins for secondary/ghost (same gate as Run).
+    "disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-muted disabled:text-fg-subtle disabled:shadow-none disabled:border-border-subtle disabled:hover:bg-bg-muted disabled:hover:text-fg-subtle disabled:hover:opacity-100",
     className,
   )}
   {...rest}
