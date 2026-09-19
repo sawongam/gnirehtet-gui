@@ -3,7 +3,7 @@
   import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
-  type Tone = "default" | "success" | "warning" | "danger" | "info" | "muted";
+  type Tone = "default" | "success" | "warning" | "danger" | "info" | "muted" | "primary";
 
   let {
     class: className = "",
@@ -17,11 +17,12 @@
 
   const tones: Record<Tone, string> = {
     default: "bg-bg-muted text-fg border-border",
-    success: "bg-success/15 text-success border-success/25",
-    warning: "bg-warning/15 text-warning border-warning/25",
-    danger: "bg-danger/15 text-danger border-danger/25",
-    info: "bg-info/15 text-info border-info/25",
+    success: "bg-success-soft text-success-strong border-success/25",
+    warning: "bg-warning-soft text-warning-strong border-warning/25",
+    danger: "bg-danger-soft text-danger-strong border-danger/25",
+    info: "bg-accent-50 text-accent border-accent/20",
     muted: "bg-bg-muted text-fg-muted border-border-subtle",
+    primary: "bg-accent-50 text-accent border-accent/25",
   };
 </script>
 
