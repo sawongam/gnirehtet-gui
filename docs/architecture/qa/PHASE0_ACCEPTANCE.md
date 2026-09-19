@@ -59,10 +59,10 @@ Cross-ref: EVENT_STATUS_MAP §2 / §4; ERROR_UX `PORT_IN_USE`; FAILURE_SCENARIOS
 
 ## 4. Quit while running → no orphan
 
-| ID | Check | Pass | Fail | Lab (`29dc0fa` / PHASE0_LAB_NOTES) |
-|----|-------|------|------|-------------------------------------|
+| ID | Check | Pass | Fail | Lab (`1868893` / PHASE0_LAB_NOTES + script) |
+|----|-------|------|------|---------------------------------------------|
 | P0-Q1 | Quit with owned relay running | App quit hook tears down owned sidecar; configured port (**31416** default) is **free** before/as process exit completes | Listener remains; zombie child | **PASS** — `clear_owned_relay` → child gone, port free; poll `None` |
-| P0-Q2 | Quit mid-start | Partial start does not leave orphan relay we spawned | Orphan after cancel/quit | **TBD** |
+| P0-Q2 | Quit mid-start | Partial start does not leave orphan relay we spawned | Orphan after cancel/quit | **PASS** — start_relay_with_stdio → immediate `clear_owned_relay` / Drop; child gone, port free (`1868893`) |
 | P0-Q3 | adb server | Do **not** kill shared user `adb` server on quit by default (ERROR_UX / DESKTOP_LIFECYCLE) | Aggressive adb server kill as default | **PASS*** — adb PIDs unchanged; *no adb server present in this lab (`adb_note=no_adb_server_present_lab_ok`) |
 | P0-Q4 | Must-log | `stage=stop\|shutdown`, `port`, success flags present | Silent teardown with no trail | Code-pass (orchestrator); full quit-hook log trail not separately labbed |
 
@@ -137,9 +137,9 @@ QA sign-off notes for this checklist should mirror the same honesty: expectation
 | Scaffold smoke (§1) | Desktop | _TBD_ (no display lab) | 2026-09-19 | PHASE0_LAB_NOTES — P0-S1 not run |
 | Sidecar + logs (§2) | Desktop + QA | **Near Pass** | 2026-09-19 | R1/R2/R4/R5 **PASS**; R3 **Partial** (WebView strip) |
 | Port ownership (§3) | Desktop + QA | **PASS** (lab) | 2026-09-19 | Default :31416 + R4 foreign `PORT_IN_USE` before ownership |
-| Quit / no orphan (§4) | Desktop + QA | **PASS** (P0-Q1 lab); Q2 TBD | 2026-09-19 | `clear_owned_relay` → child gone, port free (`29dc0fa`) |
+| Quit / no orphan (§4) | Desktop + QA | **PASS** (P0-Q1 + P0-Q2) | 2026-09-19 | Q1 `29dc0fa`; Q2 mid-start quit `1868893` |
 | Chip honesty (§6) | Desktop + QA | **Pass** (no Sharing claimed) | 2026-09-19 | Relay-only; Sharing N/A |
 
-**QA lab re-score (`29dc0fa`):** P0-R1/R2/R4/R5/Q1 **PASS**; P0-R3 **Partial**; no Sharing.
+**QA lab re-score (`1868893`):** P0-R1/R2/R4/R5/Q1/Q2 **PASS**; P0-R3 **Partial**; no Sharing.
 
-**Exit:** All Yes-required rows Pass or Waived-with-ticket; Sharing still not claimable without three layers. Remaining Phase 0 soft gaps: R3 WebView strip, Q2 mid-start quit, S1 GUI launch.
+**Exit:** All Yes-required rows Pass or Waived-with-ticket; Sharing still not claimable without three layers. Remaining Phase 0 soft gaps: R3 WebView strip, S1 GUI launch.
