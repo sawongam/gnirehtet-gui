@@ -1,11 +1,12 @@
 # Copy Rules — gnirehtet-gui
 
 **Audience:** Desktop Engineer, UX  
-**Status:** Shell vocabulary for ASAP polish  
+**Status:** Aligned to visual SoT v3 (2026-09-20)  
 **SoT states:** `EVENT_STATUS_MAP.md`, `MVP_UX.md`  
-**SoT errors:** `ERROR_UX.md`, `apps/desktop/src/lib/errorUx.ts`
+**SoT errors:** `ERROR_UX.md`, `apps/desktop/src/lib/errorUx.ts`  
+**Visual:** [`VISUAL_APPROVED_V3.md`](./VISUAL_APPROVED_V3.md)
 
-Desktop must not invent Sharing claims or new error codes in chrome.
+Desktop must not invent Sharing / Connected claims or new error codes in chrome.
 
 ---
 
@@ -23,79 +24,98 @@ Desktop must not invent Sharing claims or new error codes in chrome.
 
 **Never** show Sharing / Connected on intent-sent or relay-only.
 
-Chip “Waiting for VPN” may shorten from MVP_UX “Waiting for VPN permission” — keep meaning identical to EVENT_STATUS_MAP.
+---
+
+## 2. Connected synonym (v3)
+
+UI **may** say **Connected** / “Internet tunnel active” as a user-facing synonym for the Sharing chip **only when** EVENT_STATUS_MAP three-layer Sharing is healthy.
+
+| OK when three-layer healthy | Still forbidden early |
+|-----------------------------|------------------------|
+| Connected | Connected on intent-sent |
+| Internet tunnel active | Online as synonym for Sharing without layers |
+| Sharing chip | VPN Connected (commercial VPN metaphor) |
+
+Chip vocabulary in diagnostics / compact chrome may still prefer **Sharing**; dashboard hero may use **Connected** under the rule above.
 
 ---
 
-## 2. Primary verbs — decision
+## 3. Primary verbs — decision
 
 | Role | Label | Notes |
 |------|-------|-------|
-| Primary start | **Run** | Matches current IPC / `+page.svelte` (`runSession`). Keep for shell. |
-| Primary stop | **Stop** | Matches `stopClient` teardown. |
-| Healthy state | **Sharing** | Chip only — not a button label. |
+| Primary start | **Run** | IPC `runSession`. Screenshot “Connect device” may label the same pipeline on empty state. |
+| Primary stop | **Stop** | IPC teardown. Screenshot **Stop tethering** / Disconnect = same stop session. |
+| Healthy state | **Sharing** / **Connected** | Chip / hero only — not a button. Connected only if three-layer healthy. |
 | Primary subtitle | Share this PC’s network | Under Run when Idle/Ready |
 
-**Do not** dual-label buttons “Start sharing” in the shell while IPC says Run — that forks QA and screenshots. MVP_UX’s “Start sharing” remains the *product verb* in docs; **shell buttons stay Run / Stop**.
+| Action | Shell label | Screenshot alias |
+|--------|-------------|------------------|
+| Repair | **Repair tunnel** | Restart tunnel |
+| Install | **Install helper** | Install client |
+| Refresh | **Refresh devices** | — |
+| Relay | **Start Relay** / **Stop Relay** | Service / Advanced |
+| VPN recheck | **I’ve allowed it** | — |
+| Quit confirm | **Stop sharing and quit?** | — |
 
-| Action | Shell label |
-|--------|-------------|
-| Repair | **Repair tunnel** |
-| Install | **Install helper** (UI; short “Install” OK in tight layouts) |
-| Refresh | **Refresh devices** |
-| Relay | **Start Relay** / **Stop Relay** (Advanced only) |
-| VPN recheck | **I’ve allowed it** (refresh / recheck) |
-| Quit confirm | **Stop sharing and quit?** (dialog — “sharing” OK in sentence sense) |
+Do not fork QA with dual IPC names — aliases are labels only.
 
 ---
 
-## 3. Direction chrome
+## 4. Direction chrome
 
-Always:
+Always valid:
 
 > **Internet: This PC → Phone**
 
-Do not invert. Do not say “tether” without “reverse” if used at all (prefer direction badge alone).
+Do not invert. Prefer direction badge; “reverse tethering” OK in brand/subtitle.
 
 ---
 
-## 4. Forbidden chrome words
+## 5. Color semantics in copy/chrome
+
+| Color | Meaning |
+|-------|---------|
+| **Green** | Health only (Connected/Sharing, ADB ok, Online, service healthy) |
+| **Blue** | Actions (Run, Connect, nav, switches ON) |
+| **Red** | Destructive / error only (Stop tethering, Disconnect, fatal) |
+
+Switches ON = blue, **not** green.
+
+---
+
+## 6. Forbidden chrome words (still)
 
 | Ban | Why |
 |-----|-----|
-| Connected | Ambiguous; implies Sharing without layers |
-| Online | Same |
-| VPN Connected | Implies commercial VPN / PC VPN |
-| Kill switch / BLOCKING INTERNET / Protected / Secured | Wrong metaphor (`ERROR_UX`, `MVP_UX`) |
-| HANDSHAKE_LIVENESS_MVP | Developer doc id — never in UI |
-| Pending until handshake (see …) | Current `+page.svelte` jargon — strip |
+| Connected *(before three-layer healthy)* | Lies about tunnel |
+| Online *(as session chip for Sharing)* | Ambiguous — device Online ≠ Sharing |
+| VPN Connected | Commercial / PC VPN metaphor |
+| Kill switch / BLOCKING INTERNET / Protected / Secured | Wrong metaphor |
+| HANDSHAKE_LIVENESS_MVP | Dev id — never in UI |
 
 ---
 
-## 5. Developer → user rewrites
+## 7. Developer → user rewrites
 
 | Internal / current UI | User-facing |
 |-----------------------|-------------|
 | Pending until handshake (see HANDSHAKE_LIVENESS_MVP) — not Sharing | Waiting for phone to finish connecting |
-| Run ≈ install-if-needed → tunnel → start + session-owned relay… | Share this PC’s network *(subtitle)*; details stay in logs/docs |
-| Phase 3 — quit-clean, ERROR_UX recovery… | Remove from header subtitle |
-| owned (relay) | Hide from main chrome; Advanced/Diagnostics only if needed |
-| Tauri + SvelteKit + Typescript App (`app.html`) | gnirehtet-gui |
-
-Layer tooltips: one plain sentence each (`COMPONENT_INVENTORY.md`) — no architecture filenames.
+| Run ≈ install-if-needed → tunnel → start… | Share this PC’s network *(subtitle)* |
+| owned (relay) | Hide from main chrome |
+| Tauri + SvelteKit + Typescript App | gnirehtet-gui |
 
 ---
 
-## 6. ERROR_UX in banners
+## 8. ERROR_UX in banners
 
-- Always show stable code as **`[CODE]`** before title, e.g. `[TUNNEL_LOST] Sharing interrupted`.  
-- Use `errorUxFor(code)` title / explanation / recoveryHint.  
-- Do not invent codes. Prefer recovery Buttons named in ERROR_UX (Repair tunnel, Reinstall helper, …).  
-- Log dump is not a title; optional collapsed “Show logs”.
+- Always show **`[CODE]`** before title.  
+- Use `errorUxFor(code)` — do not invent codes.  
+- Recovery Buttons named in ERROR_UX (Repair tunnel, Reinstall helper, …).
 
 ---
 
-## 7. Layer labels (short)
+## 9. Layer labels (short)
 
 | Layer | Healthy | Waiting / off | Bad |
 |-------|---------|---------------|-----|
@@ -103,29 +123,17 @@ Layer tooltips: one plain sentence each (`COMPONENT_INVENTORY.md`) — no archit
 | Tunnel | OK | — | Lost / Failed |
 | Device VPN | On / Active | Waiting / Off | Error |
 
-Port display: `:31416` muted beside Relay when known.
-
 ---
 
-## 8. Empty / auth snippets (keep calm)
+## 10. Checklist for Desktop PR
 
-Reuse MVP_UX tone:
-
-- No devices → cable, USB debugging, unlock, Accept Allow USB debugging.  
-- Unauthorized → Unlock and tap Allow; Always allow from this computer.  
-- ADB missing → Choose platform-tools adb; app does not auto-download.
-
----
-
-## 9. Checklist for Desktop PR
-
-- [ ] Buttons: Run / Stop / Repair tunnel / Install helper / Refresh devices / Advanced Relay  
-- [ ] Chip vocabulary matches EVENT_STATUS_MAP  
-- [ ] No Connected / Online / VPN Connected  
-- [ ] No HANDSHAKE_* or architecture ids in chrome  
+- [ ] Buttons: Run/Stop (or screenshot aliases) / Repair tunnel / Install helper / Refresh / Relay  
+- [ ] Connected / Sharing only when three-layer healthy  
+- [ ] No early Connected; no HANDSHAKE_* in chrome  
 - [ ] Banners show `[CODE]`  
-- [ ] Sharing only when three layers + handshake  
+- [ ] Green = health; blue = actions; red = destructive only  
+- [ ] Direction: Internet: This PC → Phone  
 
 ---
 
-*Copy only. Layout → `SHELL_SCREENS.md`. Errors → `ERROR_UX.md`.*
+*Copy only. Layout → `SHELL_SCREENS.md`. Tokens → `DESIGN_TOKENS.md`. Errors → `ERROR_UX.md`.*

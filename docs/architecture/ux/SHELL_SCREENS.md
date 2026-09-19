@@ -1,157 +1,160 @@
-# Shell Screens — gnirehtet-gui (SaaS layout)
+# Shell Screens — gnirehtet-gui (AppShell)
 
 **Audience:** Desktop Engineer  
-**Status:** v2 **standard SaaS** layout (Sangam 2026-09-20)  
-**Behavior SoT:** `EVENT_STATUS_MAP.md`, `ERROR_UX.md`, `COPY_RULES.md`, `MVP_UX.md`  
-**Visual SoT:** `THEME.md` (indigo SaaS light)
+**Status:** Locked to visual SoT v3 (2026-09-20)  
+**Visual SoT:** [`VISUAL_APPROVED_V3.md`](./VISUAL_APPROVED_V3.md) + [`mockups/approved-saas-dashboard.png`](./mockups/approved-saas-dashboard.png)  
+**Tokens:** [`DESIGN_TOKENS.md`](./DESIGN_TOKENS.md) · [`THEME.md`](./THEME.md)  
+**Behavior SoT:** `EVENT_STATUS_MAP.md`, `ERROR_UX.md`, `COPY_RULES.md`, `MVP_UX.md`, `TEAM_BRIEF.md`
 
-MVP actions only — no new features.
+Visual language of the screenshot = **GOAL** for all shipped UI.  
+MVP must still support: one device, ADB detect, install APK, start/stop reverse tether, repair tunnel, clear state, errors, logs, graceful quit.  
+No networking rewrite — UI talks to existing orchestrator events (`DeviceChanged`, `RelayState`, `LogLine`, `Error`). Rust rewrite is **optional** alignment only, not required.
 
 ---
 
-## 1. Information architecture (SaaS)
-
-Single page app shell (no marketing landing):
+## 1. Information architecture (AppShell)
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│ Page header                                                │
-│  gnirehtet-gui                                             │
-│  [Internet: This PC → Phone]     Session·…   ADB·…   v…   │
-│  Optional one-line subtitle: Share this PC’s network…      │
-├────────────────────────────────────────────────────────────┤
-│ Connection status (3 cards)                                │
-│  ┌ Relay ┐  ┌ Tunnel ┐  ┌ Device VPN ┐                    │
-├──────────────────────┬─────────────────────────────────────┤
-│ Devices              │ Session                             │
-│  list / empty state  │  primary CTA(s)                     │
-│  Refresh (link/btn)  │  secondary: Repair · Install        │
-│                      │  ▸ Advanced (relay-only)            │
-├──────────────────────┴─────────────────────────────────────┤
-│ Alert slot (one) — ERROR_UX / VPN pending / unauthorized   │
-├────────────────────────────────────────────────────────────┤
-│ ▸ Logs                                                     │
-└────────────────────────────────────────────────────────────┘
+┌──────────────┬─────────────────────────────────────────────────────────┐
+│ SIDEBAR 240  │ TOPBAR 72                                               │
+│              │  [🔍 Search devices, logs, or settings…]  ☀  [Service…] │
+│ Gnirehtet    ├─────────────────────────────────────────────────────────┤
+│ Reverse Tet. │ MAIN — Dashboard                                        │
+│              │  Greeting                                               │
+│ ● Dashboard  │  ┌ Connection hero ─────────────┐ ┌ Devices ──────────┐ │
+│   Devices (1)│  │ Connected / tunnel active*   │ │ 1 device (MVP)    │ │
+│   Traffic    │  │ PC ── link ── Phone          │ │ actions           │ │
+│   Logs       │  │ [Stop tethering]             │ ├───────────────────┤ │
+│   Settings   │  └──────────────────────────────┘ │ Install client    │ │
+│              │  ┌ Network Traffic — Later ─────┐ │ How it works      │ │
+│ [promo card] │  │ placeholder / hide in MVP    │ │ Quick actions**   │ │
+│ ADB · v…     │  └──────────────────────────────┘ └───────────────────┘ │
+└──────────────┴─────────────────────────────────────────────────────────┘
 ```
 
-Feel: **Stripe-like product page** — header, status cards, two-column content, alert, logs — not a form dump.
+\* Connected / “Internet tunnel active” **only** when EVENT_STATUS_MAP three-layer Sharing healthy.  
+\*\* Quick actions only if they map to existing settings (Verbose logs OK; Auto-start relay / Keep ADB = Later unless already supported).
 
 ---
 
-## 2. Hierarchy rules
+## 2. Sidebar (240px)
 
-1. **Header** establishes product + direction + session truth.  
-2. **Three status cards** are scannable health (Relay · Tunnel · Device VPN).  
-3. **Session column owns primary actions** for the current chip.  
-4. **One alert slot** below columns — never stack 4 banners.  
-5. **Logs** secondary, collapsed by default once stable (MVP: may start expanded if debugging).
+| Item | MVP | Notes |
+|------|-----|-------|
+| Dashboard | **Ship** | Primary surface |
+| Devices | Ship or same panel | May duplicate dashboard Devices card; **one device only** |
+| Traffic | **Later** | Stub page or hide |
+| Logs | **Ship** | Log view / route |
+| Settings | **Ship** | Existing settings |
+| Devices badge “1” | Cosmetic OK | MVP = one device; no multi-device |
+| Promo card | Visual OK | Copy aligned to reverse tether |
+| ADB footer | Ship | ADB connected / missing + version |
 
----
-
-## 3. Header
-
-| Element | Spec |
-|---------|------|
-| Title | `gnirehtet-gui` 20px semibold |
-| Direction | Soft pill: **Internet: This PC → Phone** (unicode →) |
-| Session badge | `Session · {Idle\|Starting\|Waiting for VPN\|Sharing\|Interrupted\|Stopping\|Error}` |
-| ADB badge | `ADB · ok` / `ADB · missing` — **separate** from session |
-| Version | muted meta |
-
-Do **not** put ERROR_UX codes in the session badge.
+Active nav: Primary-50 wash + Primary-500 icon/text (Lucide).
 
 ---
 
-## 4. Status cards (layer strip)
+## 3. Topbar (72px)
 
-Each card: white surface, 12px radius, left accent bar (relay blue / tunnel violet / vpn teal), label uppercase 12px muted, value semibold.
-
-| Layer | Healthy value | Idle / off |
-|-------|---------------|------------|
-| Relay | Listening + `:port` | stopped |
-| Tunnel | OK | — |
-| Device VPN | Active | Off / Waiting |
-
-**Sharing chip** only when all three healthy + handshake (`EVENT_STATUS_MAP`).
+| Element | MVP |
+|---------|-----|
+| Search pill | **Later** or decorative non-functional — say so in UI/tooltip if shown |
+| Theme toggle | Chrome OK; dark = Later |
+| Service status | Map to relay/service truth (e.g. Relay listening → “Service running”); never invent |
 
 ---
 
-## 5. Devices column
+## 4. Dashboard — MVP cut vs Later
 
-- Card titled **Devices** + text button **Refresh devices**.  
-- Empty: dashed muted well + short setup copy (USB debug / authorize).  
-- Rows: model + serial mono + ready/unauthorized badge; selected = indigo wash + border.  
-- Radio semantics without looking like a 1990s form — use selectable rows/cards.
-
----
-
-## 6. Session column (actions)
-
-### Idle + device ready
-- Primary: **Run** (indigo, large)  
-- Helper line: Share this PC’s network  
-- Secondary outline: **Repair tunnel** · **Install helper**  
-- Advanced disclosure: Start/Stop Relay only
-
-### Idle + ADB missing / no device
-- Run **disabled**  
-- Repair / Install **disabled**  
-- Alert carries ADB_MISSING / NO_DEVICES
-
-### Waiting for VPN
-- Primary outline: **I’ve allowed it**  
-- Destructive: **Stop**  
-- Alert: `[VPN_PERMISSION_PENDING]…` guidance only (no duplicate buttons in alert)
-
-### Sharing
-- Primary destructive: **Stop**  
-- Secondary: Repair tunnel  
-- Session badge = Sharing (green)
-
-### Interrupted
-- Primary: **Repair tunnel**  
-- Secondary: Stop  
-- Alert: `[TUNNEL_LOST]`
+| Surface | MVP | Later |
+|---------|-----|-------|
+| Greeting | Yes | — |
+| **Connection hero** | **Yes** — honest states | — |
+| **Devices card** (one device) | **Yes** | Multi-device |
+| **Install client CTA** | **Yes** → Install helper / install APK | — |
+| **How it works** | **Yes** — static education | — |
+| **Quick actions** | Only if mapped: Verbose logs OK | Auto-start relay, Keep ADB unless already supported |
+| Network Traffic chart / live MB | — | **Later** (honest zeros/placeholder OK if labeled; no fake data) |
+| “View all →” multi-device | — | Later |
 
 ---
 
-## 7. Alert slot
+## 5. Vocabulary map (screenshot → existing)
 
-Single Alert component:
+| Screenshot / SaaS label | Existing / honest meaning |
+|-------------------------|---------------------------|
+| **Connected** / “Internet tunnel active” | User-facing synonym for **Sharing** chip — **only** when Relay + Tunnel + Device VPN handshake healthy (`EVENT_STATUS_MAP`). Never on intent-sent. |
+| **Stop tethering** / Disconnect | **Stop** sharing / stop session |
+| **Restart tunnel** | **Repair tunnel** |
+| **Connect device** / Run | Start session pipeline (`runSession` / Run) |
+| Install client | **Install helper** (APK) |
+| Service running | Relay / service listening when true |
 
-- Title: `[CODE] Title` from ERROR_UX  
-- Body: explanation  
-- Optional muted recovery hint  
-- Actions only if Session column cannot own them (prefer Session)
-
----
-
-## 8. Logs
-
-Collapsible. Muted well, 12–13px mono, Clear link. No jargon filenames in user chrome.
+Direction chrome remains valid: **Internet: This PC → Phone**.
 
 ---
 
-## 9. State matrix (visual)
+## 6. Connection hero — state honesty
 
-| Chip | Status cards | Session primary |
-|------|--------------|-----------------|
-| Idle | mostly off | Run (if ready) |
-| Starting | updating | disabled / Starting… |
-| Waiting for VPN | Relay+Tunnel OK; VPN Waiting | I’ve allowed it + Stop |
-| Sharing | all healthy | Stop |
-| Interrupted | Tunnel lost | Repair tunnel |
-| Error | depends | code recovery |
-
----
-
-## 10. Explicit non-goals
-
-- Sidebar nav / multi-page SaaS IA for MVP (single page is enough)  
-- Marketing hero / pricing chrome  
-- New MVP features (tray, multi-device, charts)  
-- Dense terminal aesthetic as default
+| Chip / truth | Hero treatment | Primary action |
+|--------------|----------------|----------------|
+| Idle + device ready | Neutral / empty-ready | **Run** / Connect device (primary blue) |
+| Idle + no device / ADB missing | Empty “No device connected” | Connect guidance; Run disabled |
+| Starting | Progress / disabled | Starting… |
+| Waiting for VPN | Warning wash — **not** Connected | I’ve allowed it + Stop |
+| **Sharing** (3-layer) | Success wash — **Connected** OK | **Stop tethering** (destructive soft) |
+| Interrupted | Warning/error | **Restart tunnel** (= Repair) |
+| Error | Error wash + `[CODE]` alert | ERROR_UX recovery |
 
 ---
 
-*Desktop implements with shadcn Card, Badge, Button, Alert, Collapsible.*
+## 7. Devices card (MVP = one)
+
+- Model + serial (mono) + Online/ready/unauthorized badge  
+- Actions: Disconnect/Stop (destructive soft), Restart tunnel (Repair), optional overflow  
+- Refresh devices available (ghost / secondary)  
+- Empty state → Connect device CTA (primary)
+
+---
+
+## 8. Install client · How it works · Quick actions
+
+- **Install client** → existing Install helper IPC  
+- **How it works** → static numbered steps; no new networking claims  
+- **Quick actions:** switches ON = **blue** (not green). Wire only supported settings; stub/Later otherwise — no silent behavior change
+
+---
+
+## 9. Logs & Settings routes
+
+- **Logs:** ScrollArea mono, Clear, ERROR-friendly; Collapsible or dedicated route  
+- **Settings:** Existing surfaces only  
+- One alert slot for ERROR_UX (`[CODE]` title) — prefer not stacking banners
+
+---
+
+## 10. Events (no rewrite)
+
+UI consumes existing orchestrator:
+
+- `DeviceChanged`  
+- `RelayState`  
+- `LogLine`  
+- `Error`  
+
+Optional alignment with Tauri SessionController — **not** a Rust networking rewrite.
+
+---
+
+## 11. Explicit non-goals (MVP)
+
+- Live throughput charts with invented numbers  
+- Multi-device sharing  
+- Functional global search  
+- Traffic page as a real analytics product  
+- Claiming Connected without three-layer health  
+- Indigo-as-primary theme  
+
+---
+
+*Components → `COMPONENT_INVENTORY.md`. Tokens → `DESIGN_TOKENS.md`.*

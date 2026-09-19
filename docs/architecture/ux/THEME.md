@@ -1,32 +1,37 @@
 # Theme — gnirehtet-gui
 
 **Audience:** Desktop Engineer  
-**Status:** **Light SaaS UI** (Sangam 2026-09-20: “standard saas type of ui”)  
-**Pairs with:** `DESIGN_SYSTEM.md` (shadcn-svelte + Tailwind), `SHELL_SCREENS.md`
+**Status:** Locked to visual SoT v3 (2026-09-20)  
+**Token SoT:** [`DESIGN_TOKENS.md`](./DESIGN_TOKENS.md)  
+**Visual SoT:** [`VISUAL_APPROVED_V3.md`](./VISUAL_APPROVED_V3.md) + [`mockups/approved-saas-dashboard.png`](./mockups/approved-saas-dashboard.png)  
+**Pairs with:** `SHELL_SCREENS.md`, `DESIGN_SYSTEM.md` (shadcn-svelte + Tailwind)
 
-Cross-ref: `EVENT_STATUS_MAP.md`, `ERROR_UX.md`, `COPY_RULES.md` (behavior unchanged).
+Behavior unchanged: `EVENT_STATUS_MAP.md`, `ERROR_UX.md`, `COPY_RULES.md`, `TEAM_BRIEF.md`.
 
 ---
 
-## 1. Direction change
+## 1. Direction
 
-| Was (v1 utility) | Now (v2 SaaS) |
-|------------------|---------------|
-| Dense / scrcpy-tool chrome | Spacious product UI (Stripe / Vercel / Linear dashboard feel) |
-| Compact 4px rhythm everywhere | Comfortable 8–16px padding, clearer sections |
-| Tech-strip status chips | Soft SaaS badges + page header |
-| Dark-or-dense optional | **Light SaaS default** |
+Professional developer utility + modern SaaS dashboard  
+(**Linear × Vercel × Raycast × networking utility**).
 
-**Unchanged:** MVP actions, ERROR_UX codes, Sharing = three-layer healthy only, direction copy **Internet: This PC → Phone**.
+| Was (v2 indigo-primary) | Now (v3 blue-primary) |
+|-------------------------|------------------------|
+| Primary `#4F46E5` indigo as brand CTA | **Primary `#2563EB` blue** — UI feels blue, not purple |
+| Single-page product strip | **AppShell:** 240px sidebar + 72px topbar + dashboard grid |
+| Waiting-VPN frame as visual goal | **Dashboard mockup** is visual goal; Waiting-VPN is historical only |
+
+**Unchanged:** MVP actions, ERROR_UX codes, Sharing / Connected only when three-layer healthy, direction **Internet: This PC → Phone**.
 
 ---
 
 ## 2. Principles
 
-- **Standard SaaS.** Clean white surfaces, soft gray canvas, indigo/blue primary, generous whitespace, clear hierarchy.  
-- **Product, not terminal.** Serials/logs stay monospace; everything else reads like a modern web app.  
-- **One primary CTA per state.** Secondary actions quieter (outline / ghost).  
-- **Semantics still honest.** Never claim Sharing early; banners keep `[CODE]`.
+- **Tokens live in `DESIGN_TOKENS.md`.** Do not fork a second palette here.
+- **Light boot.** No `html.dark` by default; theme toggle chrome may exist (Later functional).
+- **Blue = actions.** Green = health only. Red = destructive / error only.
+- **Honest states.** Never claim Connected / Sharing on intent-sent or relay-only.
+- **Optional alignment** with existing Tauri orchestrator events — no Rust rewrite required.
 
 ---
 
@@ -34,156 +39,71 @@ Cross-ref: `EVENT_STATUS_MAP.md`, `ERROR_UX.md`, `COPY_RULES.md` (behavior uncha
 
 | | Value |
 |--|-------|
-| Default size | ~**1000 × 700** (SaaS needs a bit more air) |
-| Minimum | ~**800 × 560** |
-| Title | `gnirehtet-gui` |
-| Boot | **Light** (no `html.dark` by default) |
-| Dark | Optional later toggle |
+| Default size | ~**1100 × 720** (sidebar shell) |
+| Minimum | ~**900 × 600** |
+| Title | `gnirehtet-gui` / product name per mockup |
+| Boot | **Light** |
+| Dark | Optional Later |
 
 ---
 
-## 4. Type
+## 4. Brand at a glance (see DESIGN_TOKENS for full scales)
 
-| Role | Family |
-|------|--------|
-| UI | Inter, "Segoe UI", system-ui, sans-serif |
-| Mono | ui-monospace / JetBrains Mono (serials, logs, codes only) |
+| Role | Hex |
+|------|-----|
+| **Primary** | `#2563EB` |
+| Primary hover / pressed | `#1D4ED8` / `#1E40AF` |
+| Primary soft | `#DBEAFE` / `#EFF6FF` |
+| Accent indigo (sparing) | `#4F46E5` |
+| Background | `#F8FAFC` |
+| Surface | `#FFFFFF` |
+| Border | `#E2E8F0` |
+| Success / Warning / Error | Per `DESIGN_TOKENS.md` |
 
-| Token | Size | Use |
-|-------|------|-----|
-| `text-xs` | 12px | Badges, meta |
-| `text-sm` | 14px | Body, rows |
-| `text-base` | 16px | Section titles, primary buttons |
-| `text-lg` | 20px | Page title |
-| `text-xl` | 24px | Rare — empty-state headline only |
-
-Line-height ~1.5. **More air than v1 utility.**
+Focus ring: `#93C5FD`. Type: Inter + mono for tech values. Scale: Display 32 → Label 12 / Metrics 24.
 
 ---
 
-## 5. Spacing & shape
+## 5. Shell mapping
 
-- Base **8px** (SaaS comfort). Section gaps **16–24px**. Card padding **16–20px**.  
-- Radius **10–12px** cards; **8px** buttons.  
-- Shadow: `0 1px 2px rgba(15,23,42,0.05), 0 8px 24px rgba(15,23,42,0.06)`.  
-- Borders hairline `#E2E8F0`.
+| Chrome | Spec |
+|--------|------|
+| Sidebar | 240px — Dashboard, Devices, Traffic, Logs, Settings |
+| Topbar | 72px — search pill, theme, service status |
+| Dashboard | Connection hero, Devices, Install client, How it works, Quick actions; Traffic card = **Later** |
 
----
-
-## 6. Color story (SaaS light)
-
-| Role | Hex | Notes |
-|------|-----|-------|
-| Canvas | `#F8FAFC` | Soft slate paper |
-| Surface / card | `#FFFFFF` | |
-| Muted / well | `#F1F5F9` | Empty states, logs |
-| Border | `#E2E8F0` | |
-| Text | `#0F172A` | |
-| Muted text | `#64748B` | |
-| **Primary** | `#4F46E5` | Indigo — standard SaaS CTA (replaces teal-as-primary) |
-| Primary soft | `#EEF2FF` | Selected rows / focus wash |
-| Success | `#10B981` | Sharing / healthy |
-| Warning | `#F59E0B` | Waiting VPN |
-| Danger | `#EF4444` | Stop / errors |
-| Info | `#3B82F6` | Tips |
-
-Teal may remain as a **Device VPN layer accent only**, not the primary brand button.
+Full IA / wireframe → `SHELL_SCREENS.md`.
 
 ---
 
-## 7. Pasteable CSS variables
-
-```css
-:root {
-  color-scheme: light;
-
-  --bg: #f8fafc;
-  --bg-elevated: #ffffff;
-  --bg-muted: #f1f5f9;
-  --border: #e2e8f0;
-  --border-subtle: #f1f5f9;
-
-  --fg: #0f172a;
-  --fg-muted: #64748b;
-  --fg-subtle: #94a3b8;
-
-  --accent: #4f46e5;          /* primary CTA — indigo SaaS */
-  --accent-fg: #ffffff;
-  --accent-muted: rgba(79, 70, 229, 0.10);
-
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --info: #3b82f6;
-
-  --layer-relay: #3b82f6;
-  --layer-tunnel: #8b5cf6;
-  --layer-vpn: #14b8a6;
-
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.06);
-
-  --font-ui: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
-}
-
-/* Optional dark — not boot default */
-html.dark {
-  color-scheme: dark;
-  --bg: #0b1220;
-  --bg-elevated: #111827;
-  --bg-muted: #1f2937;
-  --border: #374151;
-  --border-subtle: #1f2937;
-  --fg: #f9fafb;
-  --fg-muted: #9ca3af;
-  --fg-subtle: #6b7280;
-  --accent: #818cf8;
-  --accent-fg: #0f172a;
-  --accent-muted: rgba(129, 140, 248, 0.16);
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --info: #60a5fa;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-}
-
-html {
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-ui);
-  font-size: 14px;
-  line-height: 1.5;
-}
-```
-
-Map shadcn `--primary` → `--accent` (indigo).
-
----
-
-## 8. Component mapping
+## 6. Component color rules
 
 | UI | Treatment |
 |----|-----------|
-| Page header | Title + direction badge + session/ADB badges (right) |
-| Run | Solid indigo primary, full-width in session card |
-| Stop | Destructive solid/outline |
-| Repair / Install / Refresh | Outline secondary |
-| Layer strip | Three soft cards with left accent bar + label + value |
-| Device row | Selectable card/row with indigo wash when selected |
-| ERROR_UX | Soft tint Alert with `[CODE]` title |
-| Logs | Muted well, more padding, collapsible |
+| Primary CTA (Connect device / Run) | Solid `#2563EB` |
+| Stop tethering / Disconnect | Soft destructive (`#FEF2F2` / `#DC2626`) |
+| Repair / Restart tunnel / Install | Secondary outline or primary when Interrupted |
+| Switches ON | **Blue**, not green |
+| Connected hero | Success wash **only** if three-layer healthy |
+| Active nav | Primary-50 wash + Primary-500 |
 
 ---
 
-## 9. Anti-patterns (this pass)
+## 7. Historical notes
 
-- Dense “sysadmin” chrome / terminal aesthetic as the default look.  
-- Teal as the only brand color for primary buttons.  
-- Equal-weight button grids.  
-- Claiming Sharing without three-layer health.
+- `THEME.md` v2 indigo-primary and `VISUAL_V2_SAAS.md` / `approved-waiting-vpn.png` are **superseded** as the primary visual goal.
+- Keep Waiting-VPN mockup as historical reference only.
+- Implement against `mockups/approved-saas-dashboard.png` + `DESIGN_TOKENS.md`.
 
 ---
 
-*Layout wireframe → `SHELL_SCREENS.md`. Behavior SoT unchanged.*
+## 8. Anti-patterns
+
+- Treating indigo as primary brand  
+- Competing theme docs that diverge from V3  
+- Fake live traffic / Connected without orchestrator truth  
+- Dense terminal aesthetic as default  
+
+---
+
+*Pasteable `@theme` block → `DESIGN_TOKENS.md` §16. Layout → `SHELL_SCREENS.md`.*

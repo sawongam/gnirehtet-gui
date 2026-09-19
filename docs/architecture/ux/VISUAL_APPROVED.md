@@ -1,17 +1,20 @@
-# Visual approval — Sangam 2026-09-20
+# Visual approval — pointer
 
-**Approved reference:** `mockups/approved-waiting-vpn.png` (Waiting for VPN state).
+**Current SoT:** [`VISUAL_APPROVED_V3.md`](./VISUAL_APPROVED_V3.md)  
+**Mockup:** [`mockups/approved-saas-dashboard.png`](./mockups/approved-saas-dashboard.png)  
+**Tokens:** [`DESIGN_TOKENS.md`](./DESIGN_TOKENS.md)
 
-Sangam: “the second one looks good enough.”
+Sangam 2026-09-20 approved the **dashboard SaaS** screenshot + design brief as the visual goal.  
+Primary brand = **blue `#2563EB`** (not indigo-as-primary).
 
-## Implement
+## Historical
 
-- Match that SaaS visual language across **all** MVP states (Idle, Starting, Waiting VPN, Sharing, Interrupted, Error).
-- Specs: `THEME.md` (indigo SaaS), `SHELL_SCREENS.md`, `VISUAL_V2_SAAS.md`.
-- Idle should feel like the same product as the approved Waiting-VPN frame (not a different aesthetic).
-- Keep: ERROR_UX `[CODE]`, Sharing only on three-layer healthy, MVP actions only.
-- Light boot default.
+- `mockups/approved-waiting-vpn.png` — earlier Waiting-VPN approval; **keep as historical only**; superseded as primary visual goal by V3 dashboard.
 
-## Deliver
+## Implement (when UX/Sangam greenlights handoff)
 
-Restyle shell → re-screenshot Idle + Waiting-VPN → ping UX for confirmation.
+- Match AppShell (sidebar + topbar + dashboard) to `approved-saas-dashboard.png`
+- Follow MVP guardrails in V3 / `SHELL_SCREENS.md` (no fake Connected; traffic deferred)
+- Keep ERROR_UX `[CODE]`, three-layer honesty, existing orchestrator IPC
+
+Do **not** implement until greenlit from chat.
