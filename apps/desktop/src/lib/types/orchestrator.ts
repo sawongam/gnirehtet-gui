@@ -6,11 +6,17 @@ export type AdbInfo = {
   available: boolean;
 };
 
+/** Raw adb state token: device | unauthorized | offline | … */
 export type DeviceInfo = {
   serial: string;
   adbState: string;
   model?: string | null;
   product?: string | null;
+};
+
+/** DeviceChanged event — full list snapshot (MVP replace-all). */
+export type DeviceChangedPayload = {
+  devices: DeviceInfo[];
 };
 
 /** relay_stopped | relay_starting | relay_running | relay_error | relay_exited */

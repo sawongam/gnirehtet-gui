@@ -128,13 +128,22 @@ fn emit_relay_state(app: &AppHandle, payload: RelayStatePayload) {
 }
 
 fn emit_error(app: &AppHandle, code: &str, message: impl Into<String>) {
+    emit_error_serial(app, code, message, None);
+}
+
+fn emit_error_serial(
+    app: &AppHandle,
+    code: &str,
+    message: impl Into<String>,
+    serial: Option<String>,
+) {
     let message = message.into();
     let _ = app.emit(
         "Error",
         AppError {
             code: code.to_string(),
             message: message.clone(),
-            serial: None,
+            serial,
         },
     );
     emit_log(
@@ -143,6 +152,22 @@ fn emit_error(app: &AppHandle, code: &str, message: impl Into<String>) {
         "orchestrator",
         format!("error_code={code} {message}"),
     );
+}
+
+fn emit_device_changed(app: &AppHandle, devices: Vec<DeviceInfo>) {
+    let _ = app.emit("DeviceChanged", DeviceChangedPayload { devices });
+}
+
+fn map_devices(devices: Vec<gnirehtet_controller::AdbDevice>) -> Vec<DeviceInfo> {
+    devices
+        .into_iter()
+        .map(|d| DeviceInfo {
+            serial: d.serial,
+            adb_state: d.state,
+            model: d.model,
+            product: d.product,
+        })
+        .collect()
 }
 
 /// Invalidate in-flight crash watchers before killing the owned child.
@@ -345,32 +370,53 @@ pub fn teardown_owned_relay(app: &AppHandle, state: &OrchestratorState, stage: &
 }
 
 #[tauri::command]
-pub fn ensure_adb(state: State<'_, OrchestratorState>) -> OrchResult<AdbInfo> {
+pub fn ensure_adb(
+    app: AppHandle,
+    state: State<'_, OrchestratorState>,
+) -> OrchResult<AdbInfo> {
     let session = lock_session(&state)?;
     match session.ensure_adb() {
-        Ok(status) => Ok(AdbInfo {
-            path: status.path,
-            version: status.version,
-            available: true,
-        }),
-        Err(e) => Err(OrchError::from_controller(e)),
+        Ok(status) => {
+            emit_log(
+                &app,
+                "info",
+                "orchestrator",
+                format!("stage=ensure_adb path={} version={}", status.path, status.version),
+            );
+            Ok(AdbInfo {
+                path: status.path,
+                version: status.version,
+                available: true,
+            })
+        }
+        Err(e) => {
+            let (code, message) = map_controller_err(&e);
+            // Surface ADB_MISSING / ADB_PATH_INVALID (and any other mapped code) via Error.
+            emit_error(&app, &code, message.clone());
+            Err(OrchError::coded(code, message))
+        }
     }
 }
 
 #[tauri::command]
-pub fn list_devices(state: State<'_, OrchestratorState>) -> OrchResult<Vec<DeviceInfo>> {
+pub fn list_devices(
+    app: AppHandle,
+    state: State<'_, OrchestratorState>,
+) -> OrchResult<Vec<DeviceInfo>> {
     let session = lock_session(&state)?;
     match session.list_devices() {
-        Ok(devices) => Ok(devices
-            .into_iter()
-            .map(|d| DeviceInfo {
-                serial: d.serial,
-                adb_state: d.state,
-                model: d.model,
-                product: d.product,
-            })
-            .collect()),
-        Err(e) => Err(OrchError::from_controller(e)),
+        Ok(devices) => {
+            let mapped = map_devices(devices);
+            emit_device_changed(&app, mapped.clone());
+            Ok(mapped)
+        }
+        Err(e) => {
+            let (code, message) = map_controller_err(&e);
+            emit_error(&app, &code, message.clone());
+            // Clear the UI list on discovery failure (e.g. ADB_MISSING mid-session).
+            emit_device_changed(&app, Vec::new());
+            Err(OrchError::coded(code, message))
+        }
     }
 }
 

@@ -1,6 +1,6 @@
-# gnirehtet-gui desktop (Phase 0)
+# gnirehtet-gui desktop (Phase 1 shell)
 
-Tauri 2 + SvelteKit (static) + TypeScript shell with a host-orchestrator stub.
+Tauri 2 + SvelteKit (static) + TypeScript shell over `gnirehtet-controller::SessionController`.
 
 ## Prerequisites
 
@@ -32,9 +32,18 @@ cd apps/desktop && npm run check
 
 | Command | Purpose |
 |---------|---------|
-| `ensure_adb` | Validate adb |
-| `list_devices` | `adb devices -l` |
+| `ensure_adb` | Validate adb; emits `Error` (`ADB_MISSING` / `ADB_PATH_INVALID`) on failure |
+| `list_devices` | `adb devices -l`; emits `DeviceChanged` snapshot |
 | `start_relay` / `stop_relay` | Session-owned external `gnirehtet relay` |
 | `get_relay_state` | Poll ownership / running |
 
-Events: `LogLine`, `RelayState` (camelCase payloads).
+## Events (camelCase payloads)
+
+| Event | Purpose |
+|-------|---------|
+| `DeviceChanged` | Full device list snapshot (`devices[]` with `serial` + `adbState`) |
+| `RelayState` | Relay phase / port / ownedBySession |
+| `LogLine` | Child + orchestrator log lines |
+| `Error` | ERROR_UX codes (e.g. `ADB_MISSING`, `RELAY_CRASHED`) |
+
+UI polls `list_devices` ~2s while visible (DESKTOP_LIFECYCLE). Empty list + unauthorized/offline row states need no USB in unit tests — AdbClient parser covers mixed states; lab without `adb` hits `ADB_MISSING`.

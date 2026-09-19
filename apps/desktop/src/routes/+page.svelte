@@ -14,10 +14,22 @@
     AppError,
     LogLine,
     RelayStatePayload,
+    DeviceChangedPayload,
   } from "$lib/types/orchestrator";
+  import {
+    DEVICE_POLL_VISIBLE_MS,
+    applyDeviceList,
+    selectedDevice,
+  } from "$lib/stores/devices";
+  import {
+    deviceStateClass,
+    deviceStateLabel,
+    deviceStateToUxCode,
+    errorUxFor,
+  } from "$lib/errorUx";
 
   let adb = $state<AdbInfo | null>(null);
-  let adbError = $state<string | null>(null);
+  let adbErrorCode = $state<string | null>(null);
   let devices = $state<DeviceInfo[]>([]);
   let devicesError = $state<string | null>(null);
   let selectedSerial = $state<string | null>(null);
@@ -29,6 +41,10 @@
   let busy = $state(false);
   let actionError = $state<string | null>(null);
   let lastAppError = $state<AppError | null>(null);
+  let pollBusy = $state(false);
+
+  // Expose last typed Error for status (ADB_* also set adbErrorCode).
+  const lastErrorCode = $derived(lastAppError?.code ?? null);
 
   const LOG_CAP = 500;
 
@@ -41,29 +57,69 @@
     return String(e);
   }
 
+  function errCode(e: unknown): string | null {
+    if (e && typeof e === "object" && "code" in e) {
+      const c = (e as { code?: string }).code;
+      return c ?? null;
+    }
+    return null;
+  }
+
+  function setDevices(next: DeviceInfo[]) {
+    const applied = applyDeviceList(next, selectedSerial);
+    devices = applied.devices;
+    selectedSerial = applied.selectedSerial;
+  }
+
   async function refreshAdb() {
-    adbError = null;
     try {
       adb = await ensureAdb();
+      adbErrorCode = null;
     } catch (e) {
       adb = null;
-      adbError = errMsg(e);
+      adbErrorCode = errCode(e) ?? "ADB_MISSING";
+      // Error event also emitted by backend for ADB_* codes.
     }
   }
 
   async function refreshDevices() {
     devicesError = null;
     try {
-      devices = await listDevices();
-      if (selectedSerial && !devices.some((d) => d.serial === selectedSerial)) {
-        selectedSerial = null;
-      }
-      if (!selectedSerial && devices.length === 1) {
-        selectedSerial = devices[0].serial;
-      }
+      const next = await listDevices();
+      setDevices(next);
     } catch (e) {
-      devices = [];
+      setDevices([]);
       devicesError = errMsg(e);
+      const code = errCode(e);
+      if (code === "ADB_MISSING" || code === "ADB_PATH_INVALID") {
+        adb = null;
+        adbErrorCode = code;
+      }
+    }
+  }
+
+  async function refreshAll() {
+    await refreshAdb();
+    if (adb) {
+      await refreshDevices();
+    } else {
+      setDevices([]);
+    }
+    await refreshRelay();
+  }
+
+  async function pollDevices() {
+    if (pollBusy || busy) return;
+    pollBusy = true;
+    try {
+      if (!adb) {
+        await refreshAdb();
+      }
+      if (adb) {
+        await refreshDevices();
+      }
+    } finally {
+      pollBusy = false;
     }
   }
 
@@ -102,6 +158,7 @@
   onMount(() => {
     const unlisteners: UnlistenFn[] = [];
     let cancelled = false;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
 
     (async () => {
       unlisteners.push(
@@ -118,17 +175,33 @@
         await listen<AppError>("Error", (ev) => {
           lastAppError = ev.payload;
           actionError = `[${ev.payload.code}] ${ev.payload.message}`;
+          if (
+            ev.payload.code === "ADB_MISSING" ||
+            ev.payload.code === "ADB_PATH_INVALID"
+          ) {
+            adb = null;
+            adbErrorCode = ev.payload.code;
+          }
+        }),
+      );
+      unlisteners.push(
+        await listen<DeviceChangedPayload>("DeviceChanged", (ev) => {
+          setDevices(ev.payload.devices);
+          devicesError = null;
         }),
       );
       if (!cancelled) {
-        await refreshAdb();
-        await refreshDevices();
-        await refreshRelay();
+        await refreshAll();
+        // DESKTOP_LIFECYCLE §3.1: visible ~2s poll (no Sharing / no networking redesign).
+        pollTimer = setInterval(() => {
+          if (!cancelled) void pollDevices();
+        }, DEVICE_POLL_VISIBLE_MS);
       }
     })();
 
     return () => {
       cancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
       unlisteners.forEach((u) => u());
     };
   });
@@ -136,12 +209,33 @@
   const relayLabel = $derived(
     relay.state.replace(/^relay_/, "").replace(/_/g, " "),
   );
+
+  const selected = $derived(selectedDevice(devices, selectedSerial));
+
+  const adbBanner = $derived(
+    adbErrorCode ? errorUxFor(adbErrorCode) : null,
+  );
+
+  const authBanner = $derived.by(() => {
+    const d = selected;
+    if (!d) return null;
+    const code = deviceStateToUxCode(d.adbState);
+    return code ? errorUxFor(code) : null;
+  });
+
+  const emptyBanner = $derived(
+    adb && !adbErrorCode && devices.length === 0 && !devicesError
+      ? errorUxFor("NO_DEVICES")
+      : null,
+  );
 </script>
 
 <main class="app">
   <header>
     <h1>gnirehtet-gui</h1>
-    <p class="sub">Phase 0 scaffold — host-orchestrator stubs (one device)</p>
+    <p class="sub">
+      Phase 1 — device list + ADB auth state (one device). No Sharing claim.
+    </p>
   </header>
 
   <section class="status-bar" aria-live="polite">
@@ -150,15 +244,28 @@
       {#if adb}
         <span class="ok">ok</span>
         <span class="muted">{adb.version}</span>
-      {:else if adbError}
-        <span class="err">missing</span>
+      {:else if adbErrorCode}
+        <span class="err">{adbErrorCode}</span>
       {:else}
         <span class="muted">…</span>
       {/if}
     </div>
     <div class="chip">
+      <span class="label">Device</span>
+      {#if selected}
+        <code>{selected.serial}</code>
+        <span class={deviceStateClass(selected.adbState)}
+          >{deviceStateLabel(selected.adbState)}</span
+        >
+      {:else}
+        <span class="muted">none selected</span>
+      {/if}
+    </div>
+    <div class="chip">
       <span class="label">Relay</span>
-      <span class:ok={relay.state === "relay_running"} class:err={relay.state === "relay_error" || relay.state === "relay_exited"}
+      <span
+        class:ok={relay.state === "relay_running"}
+        class:err={relay.state === "relay_error" || relay.state === "relay_exited"}
         >{relayLabel}</span
       >
       {#if relay.port}
@@ -170,23 +277,53 @@
     </div>
   </section>
 
-  {#if adbError}
-    <div class="banner err" role="alert">{adbError}</div>
+  {#if adbBanner}
+    <div class="banner err" role="alert">
+      <strong>[{adbBanner.code}] {adbBanner.title}</strong>
+      <p>{adbBanner.explanation}</p>
+      <p class="muted">{adbBanner.recoveryHint}</p>
+    </div>
   {/if}
-  {#if actionError}
-    <div class="banner err" role="alert">{actionError}</div>
+  {#if authBanner}
+    <div class="banner warn" role="status">
+      <strong>[{authBanner.code}] {authBanner.title}</strong>
+      <p>{authBanner.explanation}</p>
+      <div class="actions tight">
+        <button type="button" onclick={() => refreshDevices()} disabled={busy}>
+          I’ve allowed it (refresh)
+        </button>
+      </div>
+    </div>
+  {/if}
+  {#if emptyBanner}
+    <div class="banner" role="status">
+      <strong>[{emptyBanner.code}] {emptyBanner.title}</strong>
+      <p>{emptyBanner.explanation}</p>
+      <p class="muted">{emptyBanner.recoveryHint}</p>
+    </div>
+  {/if}
+  {#if actionError && !adbBanner}
+    <div class="banner err" role="alert">
+      {actionError}
+      {#if lastErrorCode}<span class="muted"> · last Error event: {lastErrorCode}</span>{/if}
+    </div>
   {/if}
 
   <div class="grid">
     <section class="panel">
       <div class="panel-head">
         <h2>Devices</h2>
-        <button type="button" onclick={() => refreshDevices()} disabled={busy}>Refresh</button>
+        <button type="button" onclick={() => refreshAll()} disabled={busy}>
+          Refresh
+        </button>
       </div>
-      {#if devicesError}
+      {#if devicesError && !adbBanner}
         <p class="err">{devicesError}</p>
       {:else if devices.length === 0}
-        <p class="muted">No devices. Plug in USB and enable debugging.</p>
+        <p class="muted">
+          No devices. Plug in USB and enable debugging. List polls every
+          {DEVICE_POLL_VISIBLE_MS / 1000}s while visible.
+        </p>
       {:else}
         <ul class="devices">
           {#each devices as d}
@@ -199,12 +336,20 @@
                   bind:group={selectedSerial}
                 />
                 <code>{d.serial}</code>
-                <span class="state">{d.adbState}</span>
+                <span class="state {deviceStateClass(d.adbState)}"
+                  >{deviceStateLabel(d.adbState)}</span
+                >
                 {#if d.model}<span class="muted">{d.model}</span>{/if}
               </label>
             </li>
           {/each}
         </ul>
+      {/if}
+      {#if selected}
+        <p class="muted select-hint">
+          Selected for later install/start/stop: <code>{selected.serial}</code>
+          ({deviceStateLabel(selected.adbState)})
+        </p>
       {/if}
     </section>
 
@@ -213,14 +358,24 @@
         <h2>Relay</h2>
       </div>
       <p class="muted">
-        Start/Stop spawn the stock external <code>gnirehtet</code> binary (session-owned only).
-        Maps toward EVENT_STATUS_MAP later.
+        Start/Stop spawn the stock external <code>gnirehtet</code> binary
+        (session-owned only). Device VPN / Sharing handshake is out of this
+        slice.
       </p>
       <div class="actions">
-        <button type="button" class="primary" onclick={onStartRelay} disabled={busy}>
+        <button
+          type="button"
+          class="primary"
+          onclick={onStartRelay}
+          disabled={busy}
+        >
           Start Relay
         </button>
-        <button type="button" onclick={onStopRelay} disabled={busy || !relay.ownedBySession}>
+        <button
+          type="button"
+          onclick={onStopRelay}
+          disabled={busy || !relay.ownedBySession}
+        >
           Stop Relay
         </button>
       </div>
@@ -334,12 +489,17 @@
   .state {
     font-size: 0.8rem;
     text-transform: uppercase;
-    color: #8ab4f8;
+  }
+  .select-hint {
+    margin-top: 0.75rem;
   }
   .actions {
     display: flex;
     gap: 0.5rem;
     margin-top: 0.75rem;
+  }
+  .actions.tight {
+    margin-top: 0.5rem;
   }
   button {
     border-radius: 8px;
@@ -364,11 +524,25 @@
   .banner {
     padding: 0.6rem 0.8rem;
     border-radius: 8px;
+    background: #1e222b;
+    border: 1px solid #3c4454;
+  }
+  .banner p {
+    margin: 0.35rem 0 0;
+  }
+  .banner.err {
     background: #3b1d1d;
-    border: 1px solid #8b3a3a;
+    border-color: #8b3a3a;
+  }
+  .banner.warn {
+    background: #3b3218;
+    border-color: #a67c2a;
   }
   .ok {
     color: #81c995;
+  }
+  .warn {
+    color: #fdd663;
   }
   .err {
     color: #f28b82;

@@ -17,6 +17,13 @@ pub struct DeviceInfo {
     pub product: Option<String>,
 }
 
+/// `DeviceChanged` event — full list snapshot from `list_devices` (MVP replace-all).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceChangedPayload {
+    pub devices: Vec<DeviceInfo>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelayStatePayload {
