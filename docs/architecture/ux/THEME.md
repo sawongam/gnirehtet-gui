@@ -1,198 +1,152 @@
 # Theme — gnirehtet-gui
 
 **Audience:** Desktop Engineer  
-**Status:** **Light-first** design tokens (Sangam request 2026-09-20)  
-**Pairs with:** `DESIGN_SYSTEM.md` (shadcn-svelte + Tailwind `class` strategy)
+**Status:** **Light SaaS UI** (Sangam 2026-09-20: “standard saas type of ui”)  
+**Pairs with:** `DESIGN_SYSTEM.md` (shadcn-svelte + Tailwind), `SHELL_SCREENS.md`
 
-Cross-ref: `SHELL_SCREENS.md`, `EVENT_STATUS_MAP.md` (layer health semantics).
-
----
-
-## 1. Principles
-
-- **Light-first.** Default shell is a bright, clean technical utility — not a dark IDE clone. Dark remains a supported alternate via `class="dark"`, not the MVP boot default.  
-- **Nice, restrained color.** Soft cool-gray canvas + white cards + teal accent. Feels closer to Linear light / Apple Settings than Bootstrap or Material.  
-- **Dense technical.** scrcpy / Raycast polish — no marketing heroes, no rainbow chrome.  
-- **Semantics over decoration.** Success / warning / danger / info map to Relay · Tunnel · Device VPN and ERROR_UX banners.  
-- **Elevation = soft shadow + hairline border.** Airy but still tool-like.
+Cross-ref: `EVENT_STATUS_MAP.md`, `ERROR_UX.md`, `COPY_RULES.md` (behavior unchanged).
 
 ---
 
-## 2. Window chrome
+## 1. Direction change
+
+| Was (v1 utility) | Now (v2 SaaS) |
+|------------------|---------------|
+| Dense / scrcpy-tool chrome | Spacious product UI (Stripe / Vercel / Linear dashboard feel) |
+| Compact 4px rhythm everywhere | Comfortable 8–16px padding, clearer sections |
+| Tech-strip status chips | Soft SaaS badges + page header |
+| Dark-or-dense optional | **Light SaaS default** |
+
+**Unchanged:** MVP actions, ERROR_UX codes, Sharing = three-layer healthy only, direction copy **Internet: This PC → Phone**.
+
+---
+
+## 2. Principles
+
+- **Standard SaaS.** Clean white surfaces, soft gray canvas, indigo/blue primary, generous whitespace, clear hierarchy.  
+- **Product, not terminal.** Serials/logs stay monospace; everything else reads like a modern web app.  
+- **One primary CTA per state.** Secondary actions quieter (outline / ghost).  
+- **Semantics still honest.** Never claim Sharing early; banners keep `[CODE]`.
+
+---
+
+## 3. Window chrome
 
 | | Value |
 |--|-------|
-| Default size | ~**920 × 640** |
-| Minimum | ~**720 × 520** |
-| Title (`app.html`) | Product name (`gnirehtet-gui`) — **fix** “Tauri + SvelteKit + Typescript App” |
-| Direction chrome | Always visible: **Internet: This PC → Phone** |
-| Default color-scheme | **`light`** |
+| Default size | ~**1000 × 700** (SaaS needs a bit more air) |
+| Minimum | ~**800 × 560** |
+| Title | `gnirehtet-gui` |
+| Boot | **Light** (no `html.dark` by default) |
+| Dark | Optional later toggle |
 
 ---
 
-## 3. Type
+## 4. Type
 
-| Role | Family | Notes |
-|------|--------|-------|
-| UI | Inter **or** system-ui stack | `Inter, "Segoe UI", system-ui, -apple-system, sans-serif` |
-| Mono | JetBrains Mono / ui-monospace | Serials, ports, logs, `[CODE]` |
-
-**Type scale (dense):**
+| Role | Family |
+|------|--------|
+| UI | Inter, "Segoe UI", system-ui, sans-serif |
+| Mono | ui-monospace / JetBrains Mono (serials, logs, codes only) |
 
 | Token | Size | Use |
 |-------|------|-----|
-| `text-2xs` | **12px** | Layer labels, meta, log lines |
-| `text-xs` | **13px** | Secondary actions, badges |
-| `text-sm` | **14px** | Body, device rows, banner copy |
-| `text-base` | **16px** | Primary button label, section titles |
-| `text-lg` | **20px** | App brand / window title only |
+| `text-xs` | 12px | Badges, meta |
+| `text-sm` | 14px | Body, rows |
+| `text-base` | 16px | Section titles, primary buttons |
+| `text-lg` | 20px | Page title |
+| `text-xl` | 24px | Rare — empty-state headline only |
 
-Line-height ~1.4–1.45. Avoid 18px+ body in the shell.
-
----
-
-## 4. Spacing & shape
-
-- **Base unit:** 4px.  
-- **Radius:** **8px** cards/buttons; **6px** chips/inputs. Avoid pill-soup.  
-- **Elevation (light):** `0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04)`.  
-- **Gaps:** shell sections `12–16px`; tight action clusters `8px`.
+Line-height ~1.5. **More air than v1 utility.**
 
 ---
 
-## 5. Color story (light)
+## 5. Spacing & shape
 
-| Role | Hex | Feel |
-|------|-----|------|
-| Canvas | `#F4F7FB` | Soft cool paper (not stark #fff wall) |
-| Card / elevated | `#FFFFFF` | Clean panels |
-| Muted well | `#EEF2F7` | Logs, nested rows |
-| Border | `#D8E0EA` | Soft cool edge |
-| Text | `#0F172A` | Near-slate, readable |
-| Muted text | `#64748B` | Secondary |
-| Accent | `#0D9488` | Teal — CTA / focus (works on white) |
-| Accent soft | `#CCFBF1` | Selected device / chip fill |
-| Success | `#059669` | Sharing / healthy layer |
-| Warning | `#D97706` | Waiting VPN / unauthorized |
-| Danger | `#DC2626` | Errors / Interrupted |
-| Info | `#0284C7` | Tips / relay port |
-
-Accent on light is **deeper teal** (`#0D9488`) so contrast holds; dark mode may use brighter `#2DD4BF`.
+- Base **8px** (SaaS comfort). Section gaps **16–24px**. Card padding **16–20px**.  
+- Radius **10–12px** cards; **8px** buttons.  
+- Shadow: `0 1px 2px rgba(15,23,42,0.05), 0 8px 24px rgba(15,23,42,0.06)`.  
+- Borders hairline `#E2E8F0`.
 
 ---
 
-## 6. Token tables
+## 6. Color story (SaaS light)
 
-### Surfaces
+| Role | Hex | Notes |
+|------|-----|-------|
+| Canvas | `#F8FAFC` | Soft slate paper |
+| Surface / card | `#FFFFFF` | |
+| Muted / well | `#F1F5F9` | Empty states, logs |
+| Border | `#E2E8F0` | |
+| Text | `#0F172A` | |
+| Muted text | `#64748B` | |
+| **Primary** | `#4F46E5` | Indigo — standard SaaS CTA (replaces teal-as-primary) |
+| Primary soft | `#EEF2FF` | Selected rows / focus wash |
+| Success | `#10B981` | Sharing / healthy |
+| Warning | `#F59E0B` | Waiting VPN |
+| Danger | `#EF4444` | Stop / errors |
+| Info | `#3B82F6` | Tips |
 
-| Token | Light intent |
-|-------|--------------|
-| `--bg` | App canvas |
-| `--bg-elevated` | Cards, panels, title strip |
-| `--bg-muted` | Log pane, nested wells, hover |
-| `--border` | Default edges |
-| `--border-subtle` | Inner dividers |
-
-### Text
-
-| Token | Intent |
-|-------|--------|
-| `--fg` | Primary |
-| `--fg-muted` | Secondary / hints |
-| `--fg-subtle` | Micro labels |
-
-### Accent & semantic
-
-| Token | Light example | Use |
-|-------|---------------|-----|
-| `--accent` | `#0D9488` | Run / primary |
-| `--accent-fg` | `#F0FDFA` | Text on accent |
-| `--accent-muted` | teal wash | Selection / focus ring |
-| `--success` | `#059669` | Sharing chip; healthy |
-| `--warning` | `#D97706` | Waiting / Starting |
-| `--danger` | `#DC2626` | Error / TUNNEL_LOST |
-| `--info` | `#0284C7` | Informational |
-
-### Layer accents (restrained tints)
-
-| Layer | Token | Light lean |
-|-------|-------|------------|
-| Relay | `--layer-relay` | Sky / slate-blue |
-| Tunnel | `--layer-tunnel` | Soft violet |
-| Device VPN | `--layer-vpn` | Teal (aligns with accent when healthy) |
-
-Healthy **status word** still uses `--success`; layer tint is border/bg only.
+Teal may remain as a **Device VPN layer accent only**, not the primary brand button.
 
 ---
 
 ## 7. Pasteable CSS variables
 
-**MVP boot: light default** — do **not** put `class="dark"` on `<html>` unless user toggles it.
-
 ```css
 :root {
   color-scheme: light;
 
-  --bg: #f4f7fb;
+  --bg: #f8fafc;
   --bg-elevated: #ffffff;
-  --bg-muted: #eef2f7;
-  --border: #d8e0ea;
-  --border-subtle: #e8eef5;
+  --bg-muted: #f1f5f9;
+  --border: #e2e8f0;
+  --border-subtle: #f1f5f9;
 
   --fg: #0f172a;
   --fg-muted: #64748b;
   --fg-subtle: #94a3b8;
 
-  --accent: #0d9488;
-  --accent-fg: #f0fdfa;
-  --accent-muted: rgba(13, 148, 136, 0.12);
+  --accent: #4f46e5;          /* primary CTA — indigo SaaS */
+  --accent-fg: #ffffff;
+  --accent-muted: rgba(79, 70, 229, 0.10);
 
-  --success: #059669;
-  --warning: #d97706;
-  --danger: #dc2626;
-  --info: #0284c7;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
 
-  --layer-relay: #0284c7;
-  --layer-tunnel: #7c3aed;
-  --layer-vpn: #0d9488;
+  --layer-relay: #3b82f6;
+  --layer-tunnel: #8b5cf6;
+  --layer-vpn: #14b8a6;
 
-  --radius: 8px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.06);
 
   --font-ui: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 
-.dark,
-:root.dark,
+/* Optional dark — not boot default */
 html.dark {
   color-scheme: dark;
-
-  --bg: #0c0e12;
-  --bg-elevated: #141820;
-  --bg-muted: #1a1f29;
-  --border: #2a3140;
-  --border-subtle: #1e2430;
-
-  --fg: #e8eaed;
-  --fg-muted: #9aa3b2;
-  --fg-subtle: #6b7385;
-
-  --accent: #2dd4bf;
-  --accent-fg: #042f2e;
-  --accent-muted: rgba(45, 212, 191, 0.16);
-
+  --bg: #0b1220;
+  --bg-elevated: #111827;
+  --bg-muted: #1f2937;
+  --border: #374151;
+  --border-subtle: #1f2937;
+  --fg: #f9fafb;
+  --fg-muted: #9ca3af;
+  --fg-subtle: #6b7280;
+  --accent: #818cf8;
+  --accent-fg: #0f172a;
+  --accent-muted: rgba(129, 140, 248, 0.16);
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #f87171;
-  --info: #67e8f9;
-
-  --layer-relay: #7dd3fc;
-  --layer-tunnel: #c4b5fd;
-  --layer-vpn: #5eead4;
-
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --info: #60a5fa;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 html {
@@ -200,47 +154,36 @@ html {
   color: var(--fg);
   font-family: var(--font-ui);
   font-size: 14px;
-  line-height: 1.45;
-}
-
-code,
-.mono,
-.log-pane {
-  font-family: var(--font-mono);
+  line-height: 1.5;
 }
 ```
 
-shadcn-svelte init: prefer **zinc/slate base + custom accent override** to these CSS vars (map `--primary` → `--accent`).
+Map shadcn `--primary` → `--accent` (indigo).
 
 ---
 
-## 8. Component color mapping (quick)
+## 8. Component mapping
 
-| UI | Tokens |
-|----|--------|
-| Shell background | `--bg` |
-| Cards / device list / session column | `--bg-elevated` + `--shadow` + `--border` |
-| Run (primary) | fill `--accent`, text `--accent-fg` |
-| Stop | danger outline or solid when session active |
-| Repair / Install / Refresh | secondary / ghost — never equal weight to Run |
-| Selected device row | `--accent-muted` border/bg |
-| Session chip Sharing | success |
-| Waiting / Starting / Stopping | warning |
-| Interrupted / Error | danger |
-| ERROR_UX alert | tinted bg from danger/warning; always show `[CODE]` |
-| Log pane | `--bg-muted`, mono 12px |
+| UI | Treatment |
+|----|-----------|
+| Page header | Title + direction badge + session/ADB badges (right) |
+| Run | Solid indigo primary, full-width in session card |
+| Stop | Destructive solid/outline |
+| Repair / Install / Refresh | Outline secondary |
+| Layer strip | Three soft cards with left accent bar + label + value |
+| Device row | Selectable card/row with indigo wash when selected |
+| ERROR_UX | Soft tint Alert with `[CODE]` title |
+| Logs | Muted well, more padding, collapsible |
 
 ---
 
-## 9. What not to do
+## 9. Anti-patterns (this pass)
 
-- Default to dark after this revision.  
-- Keep Material `#1a73e8` primary.  
-- Pure `#FFFFFF` full-window with no canvas tint (looks unfinished).  
-- Neon accents / heavy gradients.  
-- Pill chips for every status.  
-- Color-alone status (always pair with text from `EVENT_STATUS_MAP` / `COPY_RULES`).
+- Dense “sysadmin” chrome / terminal aesthetic as the default look.  
+- Teal as the only brand color for primary buttons.  
+- Equal-weight button grids.  
+- Claiming Sharing without three-layer health.
 
 ---
 
-*Tokens only. Layout → `SHELL_SCREENS.md`. Components → `COMPONENT_INVENTORY.md`.*
+*Layout wireframe → `SHELL_SCREENS.md`. Behavior SoT unchanged.*

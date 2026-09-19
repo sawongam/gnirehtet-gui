@@ -16,9 +16,9 @@
 
 <div
   class={cn(
-    "rounded-md border bg-bg-elevated shadow-[var(--shadow)] transition-colors",
+    "rounded-[var(--radius)] border bg-bg-elevated shadow-[var(--shadow)] transition-colors",
     selected
-      ? "border-accent bg-accent-muted ring-1 ring-accent/40"
+      ? "border-accent bg-accent-muted ring-1 ring-accent/30"
       : "border-border",
     className,
   )}

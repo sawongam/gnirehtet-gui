@@ -1,228 +1,157 @@
-# Shell Screens — gnirehtet-gui
+# Shell Screens — gnirehtet-gui (SaaS layout)
 
 **Audience:** Desktop Engineer  
-**Status:** Single-window main shell layout + states for ASAP polish  
-**SoT for chips / Sharing:** `EVENT_STATUS_MAP.md`  
-**SoT for errors:** `ERROR_UX.md` + `apps/desktop/src/lib/errorUx.ts`  
-**Copy:** `COPY_RULES.md`
+**Status:** v2 **standard SaaS** layout (Sangam 2026-09-20)  
+**Behavior SoT:** `EVENT_STATUS_MAP.md`, `ERROR_UX.md`, `COPY_RULES.md`, `MVP_UX.md`  
+**Visual SoT:** `THEME.md` (indigo SaaS light)
 
-Does **not** invent tray, multi-share, charts, or networking changes.
-
----
-
-## 1. Single main shell (ASCII)
-
-```
-┌ titlebar / app chrome ──────────────────────────────────────────┐
-│ Brand · direction badge · session chip                          │
-├─────────────────────────────────────────────────────────────────┤
-│ Three-layer strip (Relay | Tunnel | Device VPN)                 │
-├──────────────────────┬──────────────────────────────────────────┤
-│ Device list          │ Session column                           │
-│ (selected card)      │ Primary: Run / Stop                      │
-│                      │ Secondary: Repair · Install              │
-│                      │ Advanced disclosure: Relay only          │
-├──────────────────────┴──────────────────────────────────────────┤
-│ Contextual banner (error / VPN / unauthorized) — ONE slot       │
-├─────────────────────────────────────────────────────────────────┤
-│ Logs (collapsible, monospace, filter later)                     │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Zone rules
-
-| Zone | Content | Notes |
-|------|---------|-------|
-| **Title / chrome** | Brand (`gnirehtet-gui`), **Internet: This PC → Phone**, session chip | Fix `app.html` title. Drop “Phase 3 — …” subtitle jargon. |
-| **Three-layer strip** | Relay · Tunnel · Device VPN | Always visible. Tooltips for help — no HANDSHAKE_LIVENESS dump. |
-| **Device list** | Selectable cards/rows; Refresh ghost button in header | Replace radio-list. Show serial (mono) + state badge + model. |
-| **Session column** | Hierarchy: **one** primary CTA, secondary actions quieter, Advanced collapsed | Ban equal-weight Install/Repair/Run/Stop grid. |
-| **Banner** | Single contextual Alert from ERROR_UX | Stacking multiple banners = noise; prioritize (ADB > auth > recovery > VPN wait > action). |
-| **Logs** | Collapsed by default after first success optional; always available | Monospace; Clear; filter = Later. |
-
-Window: ~920×640 default, min ~720×520 (`THEME.md`).
+MVP actions only — no new features.
 
 ---
 
-## 2. Session column hierarchy
+## 1. Information architecture (SaaS)
+
+Single page app shell (no marketing landing):
 
 ```
-[  Run  ]                    ← accent primary (or Stop when session active)
-Repair tunnel · Install      ← secondary / ghost text buttons
-Refresh devices              ← may live on device panel header instead
-
-▸ Advanced
-    Start Relay · Stop Relay ← only here; not on primary row
+┌────────────────────────────────────────────────────────────┐
+│ Page header                                                │
+│  gnirehtet-gui                                             │
+│  [Internet: This PC → Phone]     Session·…   ADB·…   v…   │
+│  Optional one-line subtitle: Share this PC’s network…      │
+├────────────────────────────────────────────────────────────┤
+│ Connection status (3 cards)                                │
+│  ┌ Relay ┐  ┌ Tunnel ┐  ┌ Device VPN ┐                    │
+├──────────────────────┬─────────────────────────────────────┤
+│ Devices              │ Session                             │
+│  list / empty state  │  primary CTA(s)                     │
+│  Refresh (link/btn)  │  secondary: Repair · Install        │
+│                      │  ▸ Advanced (relay-only)            │
+├──────────────────────┴─────────────────────────────────────┤
+│ Alert slot (one) — ERROR_UX / VPN pending / unauthorized   │
+├────────────────────────────────────────────────────────────┤
+│ ▸ Logs                                                     │
+└────────────────────────────────────────────────────────────┘
 ```
 
-**Decision (buttons):** Keep **Run** / **Stop** as shell labels matching current IPC (`runSession` / `stopClient`). Subtitle under primary: **“Share this PC’s network”**. The healthy chip says **Sharing** — never rename the chip to “Connected”.
-
-| Action | Visual weight |
-|--------|----------------|
-| Run | Primary (accent) when Idle / Ready / Error-retry |
-| Stop | Destructive or strong secondary when Starting / Waiting VPN / Sharing / Interrupted / Stopping |
-| Repair tunnel | Secondary; **primary only** when chip = Interrupted (`TUNNEL_LOST`) |
-| Install helper | Ghost / secondary |
-| Refresh devices | Ghost on device panel |
-| Start/Stop Relay | Inside Advanced collapsible only |
+Feel: **Stripe-like product page** — header, status cards, two-column content, alert, logs — not a form dump.
 
 ---
 
-## 3. First-run / empty
+## 2. Hierarchy rules
 
-**Not** a SaaS wizard page.
-
-Use either:
-
-1. **Inline checklist banner** on Main (ADB path · USB debugging · cable · helper APK), or  
-2. **Compact empty state** in the device column when `NO_DEVICES` / no ADB.
-
-Checklist items collapse once green. Do not navigate away from Main for first-run.
+1. **Header** establishes product + direction + session truth.  
+2. **Three status cards** are scannable health (Relay · Tunnel · Device VPN).  
+3. **Session column owns primary actions** for the current chip.  
+4. **One alert slot** below columns — never stack 4 banners.  
+5. **Logs** secondary, collapsed by default once stable (MVP: may start expanded if debugging).
 
 ---
 
-## 4. States
+## 3. Header
 
-Chip vocabulary SoT: `EVENT_STATUS_MAP.md` — Idle, Starting, Waiting for VPN, Sharing, Interrupted, Stopping, Error.
+| Element | Spec |
+|---------|------|
+| Title | `gnirehtet-gui` 20px semibold |
+| Direction | Soft pill: **Internet: This PC → Phone** (unicode →) |
+| Session badge | `Session · {Idle\|Starting\|Waiting for VPN\|Sharing\|Interrupted\|Stopping\|Error}` |
+| ADB badge | `ADB · ok` / `ADB · missing` — **separate** from session |
+| Version | muted meta |
 
-**Sharing** only when **Relay Listening + Tunnel OK + Device VPN Active (handshake)**. Never on intent-sent, relay-only, or client-id absent.
+Do **not** put ERROR_UX codes in the session badge.
 
-### Idle empty
+---
 
-| | |
-|--|--|
-| **When** | No devices / ADB missing / nothing selected |
-| **Chip** | Idle |
-| **Primary CTA** | Disabled Run (or hidden); emphasize Refresh / setup tips |
-| **Show** | Empty state or `NO_DEVICES` / `ADB_MISSING` banner; direction badge |
-| **Do NOT** | Claim Sharing; show equal action grid; dump logs as the hero |
+## 4. Status cards (layer strip)
 
-### Unauthorized
+Each card: white surface, 12px radius, left accent bar (relay blue / tunnel violet / vpn teal), label uppercase 12px muted, value semibold.
 
-| | |
-|--|--|
-| **When** | Selected (or only) device `unauthorized` |
-| **Chip** | Idle (session) + device badge Unauthorized |
-| **Primary CTA** | I’ve allowed it (refresh) |
-| **Show** | `[DEVICE_UNAUTHORIZED]` banner; unlock phone tip |
-| **Do NOT** | Enable Run; say Connected |
+| Layer | Healthy value | Idle / off |
+|-------|---------------|------------|
+| Relay | Listening + `:port` | stopped |
+| Tunnel | OK | — |
+| Device VPN | Active | Off / Waiting |
 
-### Ready
+**Sharing chip** only when all three healthy + handshake (`EVENT_STATUS_MAP`).
 
-| | |
-|--|--|
-| **When** | adb OK, device `device`, Idle, layers not in a live session |
-| **Chip** | Idle |
-| **Primary CTA** | **Run** |
-| **Show** | Secondary Repair / Install; layers Off / unknown muted |
-| **Do NOT** | Green Sharing; verbose “Run ≈ install-if-needed…” paragraph in UI |
+---
 
-### Starting
+## 5. Devices column
 
-| | |
-|--|--|
-| **When** | Run pipeline in progress |
-| **Chip** | Starting |
-| **Primary CTA** | Busy Run (disabled / “Starting…”) + Stop available |
-| **Show** | Layer strip updating; optional quiet log append |
-| **Do NOT** | Sharing; unlock Install as primary |
+- Card titled **Devices** + text button **Refresh devices**.  
+- Empty: dashed muted well + short setup copy (USB debug / authorize).  
+- Rows: model + serial mono + ready/unauthorized badge; selected = indigo wash + border.  
+- Radio semantics without looking like a 1990s form — use selectable rows/cards.
 
-### Waiting VPN
+---
 
-| | |
-|--|--|
-| **When** | Client started; Device VPN not Active (`VPN_PERMISSION_PENDING`) |
-| **Chip** | Waiting for VPN |
-| **Primary CTA** | I’ve allowed it (recheck); Stop secondary |
-| **Show** | Banner: allow Connection request on phone; key-icon tip |
-| **Do NOT** | Sharing; show `HANDSHAKE_LIVENESS_MVP` or “Pending until handshake…” |
+## 6. Session column (actions)
 
-User-facing VPN pending line: **“Waiting for phone to finish connecting”** (`COPY_RULES.md`).
+### Idle + device ready
+- Primary: **Run** (indigo, large)  
+- Helper line: Share this PC’s network  
+- Secondary outline: **Repair tunnel** · **Install helper**  
+- Advanced disclosure: Start/Stop Relay only
+
+### Idle + ADB missing / no device
+- Run **disabled**  
+- Repair / Install **disabled**  
+- Alert carries ADB_MISSING / NO_DEVICES
+
+### Waiting for VPN
+- Primary outline: **I’ve allowed it**  
+- Destructive: **Stop**  
+- Alert: `[VPN_PERMISSION_PENDING]…` guidance only (no duplicate buttons in alert)
 
 ### Sharing
-
-| | |
-|--|--|
-| **When** | All three layers healthy + handshake (`EVENT_STATUS_MAP`) |
-| **Chip** | Sharing (success) |
-| **Primary CTA** | **Stop** |
-| **Show** | Healthy layer strip; Repair available but secondary/rare |
-| **Do NOT** | Say Connected / Online / VPN Connected; hide Stop |
+- Primary destructive: **Stop**  
+- Secondary: Repair tunnel  
+- Session badge = Sharing (green)
 
 ### Interrupted
-
-| | |
-|--|--|
-| **When** | Was Sharing; tunnel lost (`TUNNEL_LOST`) |
-| **Chip** | Interrupted |
-| **Primary CTA** | **Repair tunnel** |
-| **Show** | `[TUNNEL_LOST]` banner; Stop secondary; replug tip |
-| **Do NOT** | Keep Sharing green; kill-switch / “PC blocked” language |
-
-### Error
-
-| | |
-|--|--|
-| **When** | Blocking `Error` with recovery |
-| **Chip** | Error (title from ERROR_UX) |
-| **Primary CTA** | Code-specific recovery (`ERROR_UX.md`) |
-| **Show** | `[CODE]` in banner; recovery hint; Copy error if useful |
-| **Do NOT** | Invent new codes; claim Sharing |
-
-### Stopping
-
-| | |
-|--|--|
-| **When** | Stop pipeline in progress |
-| **Chip** | Stopping |
-| **Primary CTA** | Stop busy (“Stopping…”) |
-| **Show** | Layers clearing |
-| **Do NOT** | Flash Sharing |
+- Primary: **Repair tunnel**  
+- Secondary: Stop  
+- Alert: `[TUNNEL_LOST]`
 
 ---
 
-## 5. Layer strip behavior
+## 7. Alert slot
 
-| Layer | Healthy label | Off / pending | Error |
-|-------|---------------|---------------|-------|
-| Relay | Listening (+ port) | Off | Error / crashed / port in use |
-| Tunnel | OK | — / unknown | Lost / Failed |
-| Device VPN | Active / On | Off / Waiting | Error / denied |
+Single Alert component:
 
-- Tooltips: one short sentence each — no architecture doc names.  
-- Hide developer “owned” unless Diagnostics (Later); MVP may keep muted “owned” only in Advanced.  
-- Partial relay listening with 0 clients ≠ Sharing (`EVENT_STATUS_MAP`).
+- Title: `[CODE] Title` from ERROR_UX  
+- Body: explanation  
+- Optional muted recovery hint  
+- Actions only if Session column cannot own them (prefer Session)
 
 ---
 
-## 6. Banner priority (one slot)
+## 8. Logs
 
-1. ADB missing / invalid  
-2. Device unauthorized / offline (selected)  
-3. Recovery Error (INSTALL_FAILED, RELAY_CRASHED, …)  
-4. Interrupted / TUNNEL_LOST  
-5. VPN pending  
-6. Empty NO_DEVICES  
-7. Transient action error  
-
-Never stack all of them. Logs stay in the log zone.
+Collapsible. Muted well, 12–13px mono, Clear link. No jargon filenames in user chrome.
 
 ---
 
-## 7. Quitting
+## 9. State matrix (visual)
 
-If session active (Starting / Waiting for VPN / Sharing / Interrupted / Stopping): **Dialog** — “Stop sharing and quit?” → teardown then quit (`MVP_UX` / SCREEN_SPEC). MVP only — no tray.
-
----
-
-## 8. Explicit bans
-
-- Equal-weight button grids  
-- Dumping HANDSHAKE / architecture identifiers into UI chrome  
-- Claiming Sharing early  
-- Wizard SaaS first-run page  
-- “Connected”, “Online”, “VPN Connected”, kill-switch language (`COPY_RULES.md`)
+| Chip | Status cards | Session primary |
+|------|--------------|-----------------|
+| Idle | mostly off | Run (if ready) |
+| Starting | updating | disabled / Starting… |
+| Waiting for VPN | Relay+Tunnel OK; VPN Waiting | I’ve allowed it + Stop |
+| Sharing | all healthy | Stop |
+| Interrupted | Tunnel lost | Repair tunnel |
+| Error | depends | code recovery |
 
 ---
 
-*Layout only. Tokens → `THEME.md`. Components → `COMPONENT_INVENTORY.md`.*
+## 10. Explicit non-goals
+
+- Sidebar nav / multi-page SaaS IA for MVP (single page is enough)  
+- Marketing hero / pricing chrome  
+- New MVP features (tray, multi-device, charts)  
+- Dense terminal aesthetic as default
+
+---
+
+*Desktop implements with shadcn Card, Badge, Button, Alert, Collapsible.*

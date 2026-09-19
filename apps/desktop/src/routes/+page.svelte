@@ -81,7 +81,7 @@
   let layers = $state<SessionLayers>(initialSessionLayers());
   let vpnTick = $state(0);
   let advancedOpen = $state(false);
-  let logsOpen = $state(true);
+  let logsOpen = $state(false);
   let quitDialogOpen = $state(false);
   let quitPending = $state(false);
 
@@ -712,101 +712,158 @@
   }
 </script>
 
-<main class="mx-auto flex min-h-screen max-w-[920px] flex-col gap-3 p-4 pb-6">
-  <!-- Title / chrome -->
-  <header class="flex flex-wrap items-center justify-between gap-2">
-    <div class="flex flex-wrap items-center gap-2">
-      <h1 class="text-lg font-semibold tracking-tight text-fg">gnirehtet-gui</h1>
+<main class="mx-auto flex min-h-screen max-w-[1040px] flex-col gap-5 p-5 pb-8 sm:p-6">
+  <!-- Page header -->
+  <header class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex min-w-0 flex-wrap items-center gap-2.5">
+      <h1 class="text-lg font-semibold tracking-tight text-fg sm:text-xl">gnirehtet-gui</h1>
       <Tooltip content="Phone uses this PC’s internet — not the other way.">
         <Badge tone="info">Internet: This PC → Phone</Badge>
       </Tooltip>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <Badge tone={chipTone(sessionChip)}>Session · {sessionChip}</Badge>
+      <Badge tone={chipTone(sessionChip)}>
+        <span
+          class="inline-block size-1.5 rounded-full"
+          class:bg-success={chipTone(sessionChip) === "success"}
+          class:bg-warning={chipTone(sessionChip) === "warning"}
+          class:bg-danger={chipTone(sessionChip) === "danger"}
+          class:bg-fg-subtle={chipTone(sessionChip) === "muted" || chipTone(sessionChip) === "default"}
+          aria-hidden="true"
+        ></span>
+        Session · {sessionChip}
+      </Badge>
       {#if adb}
-        <Badge tone="success">ADB · ok</Badge>
-        <span class="font-mono text-[12px] text-fg-subtle">{adb.version}</span>
+        <Badge tone="success">
+          <span class="inline-block size-1.5 rounded-full bg-success" aria-hidden="true"></span>
+          ADB · ok
+        </Badge>
+        <span class="font-mono text-xs text-fg-subtle">{adb.version}</span>
       {:else if adbErrorCode}
-        <Badge tone="danger">ADB · missing</Badge>
+        <Badge tone="danger">
+          <span class="inline-block size-1.5 rounded-full bg-danger" aria-hidden="true"></span>
+          ADB · missing
+        </Badge>
       {:else}
-        <Badge tone="muted">ADB · …</Badge>
+        <Badge tone="muted">
+          <span class="inline-block size-1.5 rounded-full bg-fg-subtle" aria-hidden="true"></span>
+          ADB · …
+        </Badge>
       {/if}
     </div>
   </header>
 
-  <!-- Three-layer strip -->
+  <!-- Three-layer status cards -->
   <section
-    class="grid grid-cols-1 gap-2 sm:grid-cols-3"
+    class="grid grid-cols-1 gap-3 sm:grid-cols-3"
     aria-label="Three-layer status"
   >
-    <Card class="border-l-[3px] border-l-layer-relay px-3 py-2">
-      <div class="flex items-center justify-between gap-2">
-        <Tooltip content="PC process that phones connect to.">
-          <span class="text-[12px] font-semibold uppercase tracking-wide text-fg-subtle"
-            >Relay</span
+    <Card class="border-l-[3px] border-l-layer-relay px-4 py-3.5">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <Tooltip content="PC process that phones connect to.">
+            <span class="text-xs font-semibold uppercase tracking-wide text-fg-subtle"
+              >Relay</span
+            >
+          </Tooltip>
+          <p
+            class="mt-1 text-base font-semibold"
+            class:text-success={relayHealthy}
+            class:text-danger={relay.state === "relay_error" || relay.state === "relay_exited"}
+            class:text-warning={relay.state === "relay_starting"}
+            class:text-layer-relay={!relayHealthy && relay.state !== "relay_error" && relay.state !== "relay_exited" && relay.state !== "relay_starting"}
           >
-        </Tooltip>
-        <span
-          class="text-sm font-medium"
-          class:text-success={relayHealthy}
-          class:text-danger={relay.state === "relay_error" || relay.state === "relay_exited"}
-          class:text-warning={relay.state === "relay_starting"}
-          class:text-fg-muted={!relayHealthy && relay.state !== "relay_error" && relay.state !== "relay_exited" && relay.state !== "relay_starting"}
+            {#if relayHealthy && relay.port}
+              Listening :{relay.port}
+            {:else if relayHealthy}
+              Listening
+            {:else}
+              {relayLabel}
+            {/if}
+          </p>
+        </div>
+        <Badge
+          tone={relayHealthy ? "success" : relay.state === "relay_starting" ? "warning" : relay.state === "relay_error" || relay.state === "relay_exited" ? "danger" : "muted"}
+          class="shrink-0"
         >
           {relayHealthy ? "Listening" : relayLabel}
-        </span>
+        </Badge>
       </div>
-      {#if relay.port}
-        <p class="mt-0.5 font-mono text-[12px] text-fg-subtle">:{relay.port}</p>
-      {/if}
     </Card>
 
-    <Card class="border-l-[3px] border-l-layer-tunnel px-3 py-2">
-      <div class="flex items-center justify-between gap-2">
-        <Tooltip content="USB reverse path from phone to this PC.">
-          <span class="text-[12px] font-semibold uppercase tracking-wide text-fg-subtle"
-            >Tunnel</span
+    <Card class="border-l-[3px] border-l-layer-tunnel px-4 py-3.5">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <Tooltip content="USB reverse path from phone to this PC.">
+            <span class="text-xs font-semibold uppercase tracking-wide text-fg-subtle"
+              >Tunnel</span
+            >
+          </Tooltip>
+          <p
+            class="mt-1 text-base font-semibold"
+            class:text-success={layers.tunnel === "ok" || layers.clientAccepted}
+            class:text-danger={layers.tunnel === "lost" || layers.tunnel === "failed"}
+            class:text-layer-tunnel={layers.tunnel === "unknown" && !layers.clientAccepted}
           >
-        </Tooltip>
-        <span
-          class="text-sm font-medium"
-          class:text-success={layers.tunnel === "ok" || layers.clientAccepted}
-          class:text-danger={layers.tunnel === "lost" || layers.tunnel === "failed"}
-          class:text-fg-muted={layers.tunnel === "unknown" && !layers.clientAccepted}
+            {tunnelLabel(layers.tunnel, layers.clientAccepted)}
+          </p>
+          {#if layers.clientAccepted && layers.clientId != null}
+            <p class="mt-0.5 font-mono text-xs text-fg-subtle">#{layers.clientId}</p>
+          {/if}
+        </div>
+        <Badge
+          tone={layers.tunnel === "ok" || layers.clientAccepted
+            ? "success"
+            : layers.tunnel === "lost" || layers.tunnel === "failed"
+              ? "danger"
+              : "muted"}
+          class="shrink-0"
         >
           {tunnelLabel(layers.tunnel, layers.clientAccepted)}
-        </span>
+        </Badge>
       </div>
-      {#if layers.clientAccepted && layers.clientId != null}
-        <p class="mt-0.5 font-mono text-[12px] text-fg-subtle">#{layers.clientId}</p>
-      {/if}
     </Card>
 
-    <Card class="border-l-[3px] border-l-layer-vpn px-3 py-2">
-      <div class="flex items-center justify-between gap-2">
-        <Tooltip content="Phone VPN permission + helper handshake.">
-          <span class="text-[12px] font-semibold uppercase tracking-wide text-fg-subtle"
-            >Device VPN</span
+    <Card class="border-l-[3px] border-l-layer-vpn px-4 py-3.5">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <Tooltip content="Phone VPN permission + helper handshake.">
+            <span class="text-xs font-semibold uppercase tracking-wide text-fg-subtle"
+              >Device VPN</span
+            >
+          </Tooltip>
+          <p
+            class="mt-1 text-base font-semibold"
+            class:text-warning={layers.vpn === "pending"}
+            class:text-danger={layers.vpn === "error"}
+            class:text-layer-vpn={layers.vpn === "idle"}
+            class:text-success={layers.vpn !== "pending" && layers.vpn !== "error" && layers.vpn !== "idle"}
           >
-        </Tooltip>
-        <span
-          class="text-sm font-medium"
-          class:text-warning={layers.vpn === "pending"}
-          class:text-danger={layers.vpn === "error"}
-          class:text-fg-muted={layers.vpn === "idle"}
+            {vpnLabel(layers.vpn)}
+          </p>
+          {#if layers.vpn === "pending"}
+            <p class="mt-0.5 text-xs text-fg-muted">Waiting for phone to finish connecting</p>
+          {/if}
+        </div>
+        <Badge
+          tone={layers.vpn === "pending"
+            ? "warning"
+            : layers.vpn === "error"
+              ? "danger"
+              : layers.vpn === "idle"
+                ? "muted"
+                : "success"}
+          class="shrink-0"
         >
           {vpnLabel(layers.vpn)}
-        </span>
+        </Badge>
       </div>
-      {#if layers.vpn === "pending"}
-        <p class="mt-0.5 text-[12px] text-fg-muted">Waiting for phone to finish connecting</p>
-      {/if}
     </Card>
   </section>
 
   <!-- Body: devices + session -->
-  <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-    <Card class="flex flex-col gap-2 p-3">
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <Card class="flex flex-col gap-3 p-4 sm:p-5">
       <div class="flex items-center justify-between gap-2">
         <h2 class="text-base font-semibold text-fg">Devices</h2>
         <Button variant="ghost" size="sm" onclick={() => refreshAll()} disabled={busy}>
@@ -817,16 +874,17 @@
       {#if devicesError && !adbBanner}
         <p class="text-sm text-danger">{devicesError}</p>
       {:else if devices.length === 0}
-        <div class="rounded-md border border-dashed border-border bg-bg-muted px-3 py-6 text-center">
-          <p class="text-sm text-fg-muted">
-            No devices. Plug in USB, enable debugging, unlock, and accept Allow USB debugging.
+        <div class="rounded-[var(--radius-sm)] border border-dashed border-border bg-bg-muted px-4 py-8 text-center">
+          <p class="text-sm font-medium text-fg-muted">No devices</p>
+          <p class="mt-1 text-sm text-fg-muted">
+            Plug in USB, enable debugging, unlock, and accept Allow USB debugging.
           </p>
-          <p class="mt-1 text-[12px] text-fg-subtle">
+          <p class="mt-2 text-xs text-fg-subtle">
             List polls every {DEVICE_POLL_VISIBLE_MS / 1000}s while visible.
           </p>
         </div>
       {:else}
-        <ul class="flex flex-col gap-1.5" role="listbox" aria-label="Device list">
+        <ul class="flex flex-col gap-2" role="listbox" aria-label="Device list">
           {#each devices as d}
             <li>
               <button
@@ -838,15 +896,17 @@
               >
                 <Card
                   selected={selectedSerial === d.serial}
-                  class="flex items-center gap-2 px-2.5 py-2 hover:bg-bg-muted/80"
+                  class="flex items-center gap-3 px-3.5 py-3 hover:bg-bg-muted/80"
                 >
-                  <code class="font-mono text-[13px] text-fg">{d.serial}</code>
+                  <div class="min-w-0 flex-1">
+                    <code class="block truncate font-mono text-sm font-medium text-fg">{d.serial}</code>
+                    {#if d.model}
+                      <span class="mt-0.5 block truncate text-xs text-fg-muted">{d.model}</span>
+                    {/if}
+                  </div>
                   <Badge tone={deviceTone(deviceStateClass(d.adbState))}
                     >{deviceStateLabel(d.adbState)}</Badge
                   >
-                  {#if d.model}
-                    <span class="ml-auto truncate text-[12px] text-fg-muted">{d.model}</span>
-                  {/if}
                 </Card>
               </button>
             </li>
@@ -855,11 +915,16 @@
       {/if}
     </Card>
 
-    <Card class="flex flex-col gap-3 p-3">
-      <h2 class="text-base font-semibold text-fg">Session</h2>
+    <Card class="flex flex-col gap-4 p-4 sm:p-5">
+      <div>
+        <h2 class="text-base font-semibold text-fg">Session</h2>
+        {#if !interrupted && !waitingVpn && sessionChip !== "Starting" && sessionChip !== "Stopping"}
+          <p class="mt-0.5 text-sm text-fg-muted">Share this PC’s network</p>
+        {/if}
+      </div>
 
       <!-- Primary CTA hierarchy -->
-      <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-2.5">
         {#if interrupted}
           <Button
             variant="default"
@@ -870,14 +935,14 @@
           >
             Repair tunnel
           </Button>
-          <Button variant="destructive" onclick={onStop} disabled={!adbOk || !selectedSerial || busy || stopping}>
+          <Button variant="destructive" size="lg" class="w-full" onclick={onStop} disabled={!adbOk || !selectedSerial || busy || stopping}>
             {stopping ? "Stopping…" : "Stop"}
           </Button>
         {:else if waitingVpn}
-          <Button variant="secondary" size="lg" class="w-full" onclick={onIveAllowedVpn} disabled={busy}>
+          <Button variant="outline" size="lg" class="w-full" onclick={onIveAllowedVpn} disabled={busy}>
             I’ve allowed it
           </Button>
-          <Button variant="destructive" onclick={onStop} disabled={busy || stopping}>
+          <Button variant="destructive" size="lg" class="w-full" onclick={onStop} disabled={busy || stopping}>
             {stopping ? "Stopping…" : "Stop"}
           </Button>
         {:else if sessionChip === "Starting"}
@@ -886,6 +951,8 @@
           </Button>
           <Button
             variant="destructive"
+            size="lg"
+            class="w-full"
             onclick={onStop}
             disabled={!adbOk || !selectedSerial || stopping}
           >
@@ -905,10 +972,11 @@
           >
             {busy ? "Starting…" : "Run"}
           </Button>
-          <p class="text-[12px] text-fg-muted">Share this PC’s network</p>
           {#if relay.ownedBySession || layers.vpn === "pending"}
             <Button
               variant="destructive"
+              size="lg"
+              class="w-full"
               onclick={onStop}
               disabled={!adbOk || !selectedSerial || busy || stopping}
             >
@@ -924,7 +992,7 @@
             Repair tunnel
           </Button>
         {/if}
-        <Button variant="ghost" size="sm" onclick={onInstall} disabled={!canAct}>
+        <Button variant="secondary" size="sm" onclick={onInstall} disabled={!canAct}>
           Install helper
         </Button>
       </div>
@@ -938,11 +1006,11 @@
           </Button>
         {/snippet}
         <div class="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onclick={onStartRelay} disabled={busy || stopping}>
+          <Button variant="secondary" size="sm" onclick={onStartRelay} disabled={busy || stopping}>
             Start Relay
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onclick={onStopRelay}
             disabled={busy || stopping || !relay.ownedBySession}
@@ -951,7 +1019,7 @@
           </Button>
         </div>
         {#if relay.message}
-          <p class="mt-1.5 text-[12px] text-fg-muted">{relay.message}</p>
+          <p class="mt-1.5 text-xs text-fg-muted">{relay.message}</p>
         {/if}
       </Collapsible>
     </Card>
@@ -970,15 +1038,15 @@
       {#if ux}
         <strong class="font-semibold">[{ux.code}] {ux.title}</strong>
         <p class="mt-1 text-sm text-fg">{ux.explanation}</p>
-        <p class="mt-0.5 text-[12px] text-fg-muted">{ux.recoveryHint}</p>
+        <p class="mt-1 text-xs text-fg-muted">{ux.recoveryHint}</p>
       {:else if bannerSlot.kind === "action" && bannerSlot.payload.kind === "raw"}
         <p class="text-sm">{bannerSlot.payload.raw}</p>
       {/if}
       {#if bannerSlot.kind === "action" && bannerSlot.payload.kind === "ux"}
-        <p class="mt-0.5 font-mono text-[12px] text-fg-subtle">{bannerSlot.payload.raw}</p>
+        <p class="mt-1 font-mono text-xs text-fg-subtle">{bannerSlot.payload.raw}</p>
       {/if}
       {#if bannerSlot.kind === "recovery" && actionError}
-        <p class="mt-0.5 font-mono text-[12px] text-fg-subtle">{actionError}</p>
+        <p class="mt-1 font-mono text-xs text-fg-subtle">{actionError}</p>
       {/if}
 
       {@const bannerHasCtas =
@@ -987,7 +1055,7 @@
         bannerSlot.kind === "empty" ||
         (bannerSlot.kind === "vpn" && ux?.code !== "VPN_PERMISSION_PENDING")}
       {#if bannerHasCtas}
-        <div class="mt-2 flex flex-wrap gap-2">
+        <div class="mt-3 flex flex-wrap gap-2">
           {#if bannerSlot.kind === "auth"}
             <Button variant="secondary" size="sm" onclick={() => refreshDevices()} disabled={busy}>
               I’ve allowed it
@@ -1028,17 +1096,22 @@
   {/if}
 
   <!-- Logs -->
-  <Card class="p-3">
+  <Card class="p-4 sm:p-5">
     <Collapsible bind:open={logsOpen}>
       {#snippet trigger({ open, toggle })}
         <div class="flex items-center justify-between gap-2">
           <Button variant="ghost" size="sm" class="px-1" onclick={toggle}>
             {open ? "▾" : "▸"} Logs
           </Button>
-          <Button variant="ghost" size="sm" onclick={() => (logs = [])}>Clear</Button>
+          <div class="flex items-center gap-2">
+            {#if !open}
+              <Badge tone="muted">Collapsed</Badge>
+            {/if}
+            <Button variant="ghost" size="sm" onclick={() => (logs = [])}>Clear</Button>
+          </div>
         </div>
       {/snippet}
-      <ScrollArea class="log-pane mt-2 max-h-[240px] rounded-md border border-border-subtle bg-bg-muted px-2.5 py-2 text-[12px] leading-relaxed text-fg">
+      <ScrollArea class="log-pane mt-3 max-h-[240px] rounded-[var(--radius-sm)] border border-border-subtle bg-bg-muted px-3 py-2.5 text-xs leading-relaxed text-fg">
         <pre class="m-0 whitespace-pre-wrap break-words font-mono">{#each logs as line}{new Date(line.timestampMs).toISOString()} [{line.level}] {line.source}: {line.message}
 {/each}</pre>
       </ScrollArea>

@@ -22,25 +22,25 @@
     default:
       "bg-accent text-accent-fg hover:opacity-90 shadow-sm border border-transparent",
     secondary:
-      "bg-bg-muted text-fg border border-border hover:bg-border-subtle",
+      "bg-bg-elevated text-fg border border-border hover:bg-bg-muted",
     destructive:
-      "bg-danger text-white hover:opacity-90 border border-transparent",
+      "bg-danger text-white hover:opacity-90 border border-transparent shadow-sm",
     ghost: "bg-transparent text-fg-muted hover:bg-bg-muted hover:text-fg border border-transparent",
     outline:
-      "bg-bg-elevated text-fg border border-border hover:bg-bg-muted",
+      "bg-bg-elevated text-accent border border-accent/40 hover:bg-accent-muted",
   };
 
   const sizes: Record<Size, string> = {
-    default: "h-8 px-3 text-sm",
-    sm: "h-7 px-2.5 text-xs",
-    lg: "h-9 px-4 text-base",
+    default: "h-9 px-3.5 text-sm",
+    sm: "h-8 px-3 text-xs",
+    lg: "h-11 px-5 text-base",
   };
 </script>
 
 <button
   type="button"
   class={cn(
-    "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors",
+    "inline-flex items-center justify-center gap-1.5 rounded-[var(--radius-sm)] font-medium transition-colors",
     variants[variant],
     sizes[size],
     // After variants so disabled look wins for secondary/ghost (same gate as Run).

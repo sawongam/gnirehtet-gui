@@ -11,7 +11,7 @@ Cross-ref: `THEME.md`, `SHELL_SCREENS.md`, `COMPONENT_INVENTORY.md`, `COPY_RULES
 
 ## 1. Goal
 
-Ship a dense technical-utility shell (Linear / Raycast / scrcpy polish) without rewriting the orchestrator, networking, or ERROR_UX codes.
+Ship a **standard light SaaS** shell (Stripe / Vercel / Linear dashboard polish) without rewriting the orchestrator, networking, or ERROR_UX codes.
 
 Hard constraints:
 
@@ -52,7 +52,7 @@ Hard constraints:
 
 ## 2.1 Theme default
 
-**Light-first** (Sangam, 2026-09-20). Boot without `html.dark`. Tokens and pasteable CSS live in `THEME.md` (canvas `#F4F7FB`, cards white, accent `#0D9488`). Dark is an optional `class="dark"` alternate — do not ship dark as the default.
+**Light SaaS default** (Sangam, 2026-09-20). Boot without `html.dark`. Tokens in `THEME.md` (canvas `#F8FAFC`, indigo primary `#4F46E5`). Dark optional later.
 
 ---
 
@@ -60,10 +60,10 @@ Hard constraints:
 
 1. **Owns components** — restyle for density without library forks.  
 2. **Bits accessibility** — Dialog (quit confirm), Collapsible (advanced relay / logs), Tooltip (layer help) get correct focus/keyboard for free.  
-3. **Tailwind density control** — `h-8`, `text-xs`, `gap-1` match utility aesthetic; no Bootstrap-admin defaults.  
+3. **Tailwind spacing control** — SaaS padding (`p-4`/`p-5`, `gap-4`), not cramped utility `gap-1`; no Bootstrap-admin defaults.  
 4. **Proven Tauri templates** — reduces webview + Vite + Svelte 5 friction.  
 5. **Incremental** — wrap existing `+page.svelte` actions; do **not** rewrite orchestrator stores (`sessionLayers`, `errorUx`, device poll).  
-6. **Look target** — light cool-gray canvas + white cards + teal accent (`THEME.md`) — Linear-light / scrcpy polish, not Material blue admin.
+6. **Look target** — light slate canvas + white cards + **indigo** primary (`THEME.md`) — standard SaaS, not dense sysadmin chrome.
 
 Desktop may later extract Bits-only if needed; start with shadcn-svelte wrappers.
 
