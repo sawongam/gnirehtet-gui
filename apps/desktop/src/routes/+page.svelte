@@ -402,7 +402,19 @@
     if (!import.meta.env.DEV) return;
     const preview = new URLSearchParams(location.search).get("preview");
     if (!preview) return;
-    if (preview === "waiting-vpn") {
+    if (preview === "idle" || preview === "adb-missing") {
+      adb = null;
+      adbErrorCode = "ADB_MISSING";
+      devices = [];
+      selectedSerial = null;
+      relay = { state: "relay_stopped", ownedBySession: false };
+      layers = initialSessionLayers();
+      lastAppError = {
+        code: "ADB_MISSING",
+        message: "ADB not found",
+      };
+      actionError = null;
+    } else if (preview === "waiting-vpn") {
       adb = { path: "/usr/bin/adb", version: "1.0.41", available: true };
       adbErrorCode = null;
       devices = [
@@ -715,7 +727,7 @@
         <Badge tone="success">ADB · ok</Badge>
         <span class="font-mono text-[12px] text-fg-subtle">{adb.version}</span>
       {:else if adbErrorCode}
-        <Badge tone="danger">ADB · {adbErrorCode}</Badge>
+        <Badge tone="danger">ADB · missing</Badge>
       {:else}
         <Badge tone="muted">ADB · …</Badge>
       {/if}
@@ -969,47 +981,49 @@
         <p class="mt-0.5 font-mono text-[12px] text-fg-subtle">{actionError}</p>
       {/if}
 
-      <div class="mt-2 flex flex-wrap gap-2">
-        {#if bannerSlot.kind === "auth"}
-          <Button variant="secondary" size="sm" onclick={() => refreshDevices()} disabled={busy}>
-            I’ve allowed it
-          </Button>
-        {:else if bannerSlot.kind === "vpn" && ux}
-          {#if ux.code === "VPN_PERMISSION_PENDING"}
-            <Button variant="secondary" size="sm" onclick={onIveAllowedVpn} disabled={busy}>
+      {@const bannerHasCtas =
+        bannerSlot.kind === "auth" ||
+        bannerSlot.kind === "recovery" ||
+        bannerSlot.kind === "empty" ||
+        (bannerSlot.kind === "vpn" && ux?.code !== "VPN_PERMISSION_PENDING")}
+      {#if bannerHasCtas}
+        <div class="mt-2 flex flex-wrap gap-2">
+          {#if bannerSlot.kind === "auth"}
+            <Button variant="secondary" size="sm" onclick={() => refreshDevices()} disabled={busy}>
               I’ve allowed it
             </Button>
-            <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
-          {:else if ux.code === "TUNNEL_LOST"}
-            <Button variant="default" size="sm" onclick={onRepairTunnel} disabled={!canAct}>
-              Repair tunnel
-            </Button>
-            <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
-          {:else}
-            <Button variant="default" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
-            <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
+          {:else if bannerSlot.kind === "vpn" && ux}
+            {#if ux.code === "TUNNEL_LOST"}
+              <Button variant="default" size="sm" onclick={onRepairTunnel} disabled={!canAct}>
+                Repair tunnel
+              </Button>
+              <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
+            {:else}
+              <Button variant="default" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
+              <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
+            {/if}
+          {:else if bannerSlot.kind === "recovery" && ux}
+            {#if ux.code === "APK_MISSING"}
+              <Button variant="default" size="sm" onclick={onInstall} disabled={!canAct}>Retry Install</Button>
+              <Button variant="ghost" size="sm" onclick={() => refreshAll()} disabled={busy}>Refresh paths</Button>
+            {:else if ux.code === "INSTALL_FAILED"}
+              <Button variant="default" size="sm" onclick={onInstall} disabled={!canAct}>Reinstall helper</Button>
+              <Button variant="secondary" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
+            {:else if ux.code === "TUNNEL_FAILED"}
+              <Button variant="default" size="sm" onclick={onRepairTunnel} disabled={!canAct}>Repair tunnel</Button>
+              <Button variant="secondary" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
+            {:else if ux.code === "RELAY_CRASHED" || ux.code === "RELAY_START_FAILED" || ux.code === "PORT_IN_USE"}
+              <Button variant="default" size="sm" onclick={onRun} disabled={!canAct}>Restart Run</Button>
+              <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
+            {:else}
+              <Button variant="default" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
+              <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
+            {/if}
+          {:else if bannerSlot.kind === "empty"}
+            <Button variant="ghost" size="sm" onclick={() => refreshAll()} disabled={busy}>Refresh devices</Button>
           {/if}
-        {:else if bannerSlot.kind === "recovery" && ux}
-          {#if ux.code === "APK_MISSING"}
-            <Button variant="default" size="sm" onclick={onInstall} disabled={!canAct}>Retry Install</Button>
-            <Button variant="ghost" size="sm" onclick={() => refreshAll()} disabled={busy}>Refresh paths</Button>
-          {:else if ux.code === "INSTALL_FAILED"}
-            <Button variant="default" size="sm" onclick={onInstall} disabled={!canAct}>Reinstall helper</Button>
-            <Button variant="secondary" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
-          {:else if ux.code === "TUNNEL_FAILED"}
-            <Button variant="default" size="sm" onclick={onRepairTunnel} disabled={!canAct}>Repair tunnel</Button>
-            <Button variant="secondary" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
-          {:else if ux.code === "RELAY_CRASHED" || ux.code === "RELAY_START_FAILED" || ux.code === "PORT_IN_USE"}
-            <Button variant="default" size="sm" onclick={onRun} disabled={!canAct}>Restart Run</Button>
-            <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
-          {:else}
-            <Button variant="default" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
-            <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
-          {/if}
-        {:else if bannerSlot.kind === "empty"}
-          <Button variant="ghost" size="sm" onclick={() => refreshAll()} disabled={busy}>Refresh devices</Button>
-        {/if}
-      </div>
+        </div>
+      {/if}
     </Alert>
   {/if}
 

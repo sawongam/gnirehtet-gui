@@ -40,7 +40,7 @@
 <button
   type="button"
   class={cn(
-    "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
+    "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-muted disabled:text-fg-muted disabled:opacity-100 disabled:shadow-none disabled:border-border disabled:hover:bg-bg-muted disabled:hover:opacity-100",
     variants[variant],
     sizes[size],
     className,
