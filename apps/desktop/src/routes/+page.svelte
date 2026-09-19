@@ -51,7 +51,17 @@
     deviceStateLabel,
     deviceStateToUxCode,
     errorUxFor,
+    type ErrorUxCopy,
   } from "$lib/errorUx";
+  import Button from "$lib/components/ui/button.svelte";
+  import Badge from "$lib/components/ui/badge.svelte";
+  import Card from "$lib/components/ui/card.svelte";
+  import Alert from "$lib/components/ui/alert.svelte";
+  import Separator from "$lib/components/ui/separator.svelte";
+  import Collapsible from "$lib/components/ui/collapsible.svelte";
+  import ScrollArea from "$lib/components/ui/scroll-area.svelte";
+  import Tooltip from "$lib/components/ui/tooltip.svelte";
+  import Dialog from "$lib/components/ui/dialog.svelte";
 
   let adb = $state<AdbInfo | null>(null);
   let adbErrorCode = $state<string | null>(null);
@@ -70,6 +80,10 @@
   let pollBusy = $state(false);
   let layers = $state<SessionLayers>(initialSessionLayers());
   let vpnTick = $state(0);
+  let advancedOpen = $state(false);
+  let logsOpen = $state(true);
+  let quitDialogOpen = $state(false);
+  let quitPending = $state(false);
 
   const LOG_CAP = 500;
 
@@ -187,6 +201,18 @@
     }),
   );
 
+  const sessionActive = $derived(
+    sessionChip === "Starting" ||
+      sessionChip === "Waiting for VPN" ||
+      sessionChip === "Interrupted" ||
+      sessionChip === "Stopping" ||
+      sessionChip === "Error" ||
+      layers.vpn === "pending" ||
+      (relay.ownedBySession && relayHealthy),
+  );
+
+  const interrupted = $derived(sessionChip === "Interrupted");
+  const waitingVpn = $derived(sessionChip === "Waiting for VPN");
   // Re-evaluate VPN pending timeout when vpnTick advances.
   const vpnPendingExpired = $derived.by(() => {
     void vpnTick;
@@ -347,17 +373,104 @@
     }
   }
 
+  async function finishQuit() {
+    quitPending = true;
+    try {
+      try {
+        await prepareQuit(selectedSerial);
+      } catch {
+        /* best-effort; Exit handler is the safety net */
+      }
+      layers = clearSessionIntent(layers);
+      busy = false;
+      stopping = false;
+      actionError = null;
+      lastAppError = null;
+      try {
+        await getCurrentWindow().destroy();
+      } catch {
+        /* already closing */
+      }
+    } finally {
+      quitPending = false;
+      quitDialogOpen = false;
+    }
+  }
+
+  /** DEV-only screenshot / layout previews via ?preview= */
+  function applyDevPreview() {
+    if (!import.meta.env.DEV) return;
+    const preview = new URLSearchParams(location.search).get("preview");
+    if (!preview) return;
+    if (preview === "waiting-vpn") {
+      adb = { path: "/usr/bin/adb", version: "1.0.41", available: true };
+      adbErrorCode = null;
+      devices = [
+        { serial: "emulator-5554", adbState: "device", model: "Pixel Preview" },
+      ];
+      selectedSerial = "emulator-5554";
+      relay = {
+        state: "relay_running",
+        ownedBySession: true,
+        port: 31416,
+      };
+      layers = markTunnelOk(initialSessionLayers(), "emulator-5554");
+      layers = markVpnPending(layers, "emulator-5554", Date.now());
+      lastAppError = {
+        code: "VPN_PERMISSION_PENDING",
+        message: "Waiting for phone Connection request",
+        serial: "emulator-5554",
+      };
+    } else if (preview === "interrupted") {
+      adb = { path: "/usr/bin/adb", version: "1.0.41", available: true };
+      adbErrorCode = null;
+      devices = [
+        { serial: "ABCD1234", adbState: "device", model: "Pixel Preview" },
+      ];
+      selectedSerial = "ABCD1234";
+      relay = {
+        state: "relay_running",
+        ownedBySession: true,
+        port: 31416,
+      };
+      layers = markTunnelLost(
+        markTunnelOk(initialSessionLayers(), "ABCD1234"),
+      );
+      lastAppError = {
+        code: "TUNNEL_LOST",
+        message: "Device unplugged or not ready — adb reverse tunnel lost",
+        serial: "ABCD1234",
+      };
+      actionError = `[TUNNEL_LOST] ${lastAppError.message}`;
+    }
+  }
+
   onMount(() => {
     const unlisteners: UnlistenFn[] = [];
     let cancelled = false;
     let pollTimer: ReturnType<typeof setInterval> | null = null;
     let vpnTimer: ReturnType<typeof setInterval> | null = null;
 
+    const previewActive =
+      import.meta.env.DEV &&
+      !!new URLSearchParams(location.search).get("preview");
+    applyDevPreview();
+
     (async () => {
+      // Browser / non-Tauri preview: skip IPC listeners.
+      try {
+        await getCurrentWindow();
+      } catch {
+        return;
+      }
+      if (previewActive) {
+        // Keep staged preview for screenshots; skip live refresh/poll.
+        return;
+      }
       unlisteners.push(
         await listen<LogLine>("LogLine", (ev) => {
           logs = [...logs, ev.payload].slice(-LOG_CAP);
-          // HANDSHAKE_LIVENESS_MVP: owned-relay only — Tunnel chip copy, never Sharing.
+          // Owned-relay LogLine Client# probe — Tunnel chip copy only, never Sharing.
           if (ev.payload.source === "relay" && relay.ownedBySession) {
             const probe = parseRelayClientLogLine(ev.payload.message);
             if (probe?.kind === "connected") {
@@ -413,27 +526,17 @@
         vpnTimer = setInterval(() => {
           if (!cancelled) vpnTick = Date.now();
         }, 2000);
-        // Quit-clean: window close → stop client + clear_owned_relay + clear UI layers.
-        // Rust Exit also teardowns (epoch bump → not RELAY_CRASHED).
+        // Quit-clean: confirm if session active, then prepare_quit + destroy.
         try {
           unlisteners.push(
             await getCurrentWindow().onCloseRequested(async (event) => {
               event.preventDefault();
-              try {
-                await prepareQuit(selectedSerial);
-              } catch {
-                /* best-effort; Exit handler is the safety net */
+              if (quitPending) return;
+              if (sessionActive) {
+                quitDialogOpen = true;
+                return;
               }
-              layers = clearSessionIntent(layers);
-              busy = false;
-              stopping = false;
-              actionError = null;
-              lastAppError = null;
-              try {
-                await getCurrentWindow().destroy();
-              } catch {
-                /* already closing */
-              }
+              await finishQuit();
             }),
           );
         } catch {
@@ -481,7 +584,6 @@
     if (adbBanner) return null;
     const code = lastAppError?.code;
     if (!code) return null;
-    // Dedicated banners already cover these:
     if (
       code === "VPN_PERMISSION_PENDING" ||
       code === "START_TIMEOUT" ||
@@ -512,7 +614,7 @@
     if (!actionError || adbBanner || recoveryBanner) return null;
     const code = lastAppError?.code;
     if (code && (code === "VPN_PERMISSION_PENDING" || code === "START_TIMEOUT" || code === "TUNNEL_LOST")) {
-      return null; // dedicated banners
+      return null;
     }
     if (code) {
       const ux = errorUxFor(code);
@@ -520,480 +622,422 @@
     }
     return { kind: "raw" as const, raw: actionError };
   });
+
+  /** Single banner slot — SHELL_SCREENS priority. */
+  type BannerSlot =
+    | { kind: "adb"; ux: ErrorUxCopy }
+    | { kind: "auth"; ux: ErrorUxCopy }
+    | { kind: "recovery"; ux: ErrorUxCopy }
+    | { kind: "vpn"; ux: ErrorUxCopy }
+    | { kind: "empty"; ux: ErrorUxCopy }
+    | { kind: "action"; payload: { kind: "ux"; ux: ErrorUxCopy; raw: string } | { kind: "raw"; raw: string } };
+
+  const bannerSlot = $derived.by((): BannerSlot | null => {
+    if (adbBanner) return { kind: "adb", ux: adbBanner };
+    if (authBanner) return { kind: "auth", ux: authBanner };
+    if (recoveryBanner) return { kind: "recovery", ux: recoveryBanner };
+    if (vpnBanner && !adbBanner) return { kind: "vpn", ux: vpnBanner };
+    if (emptyBanner) return { kind: "empty", ux: emptyBanner };
+    if (actionBanner) return { kind: "action", payload: actionBanner };
+    return null;
+  });
+
+  function chipTone(
+    chip: string,
+  ): "default" | "success" | "warning" | "danger" | "muted" {
+    switch (chip) {
+      case "Sharing":
+        return "success";
+      case "Waiting for VPN":
+      case "Starting":
+      case "Stopping":
+        return "warning";
+      case "Interrupted":
+      case "Error":
+        return "danger";
+      case "Idle":
+        return "muted";
+      default:
+        return "default";
+    }
+  }
+
+  function deviceTone(
+    cls: ReturnType<typeof deviceStateClass>,
+  ): "success" | "warning" | "danger" | "muted" {
+    switch (cls) {
+      case "ok":
+        return "success";
+      case "warn":
+        return "warning";
+      case "err":
+        return "danger";
+      default:
+        return "muted";
+    }
+  }
+
+  function alertVariantFor(
+    code: string | undefined,
+  ): "default" | "warning" | "destructive" | "info" {
+    if (!code) return "default";
+    if (
+      code === "VPN_PERMISSION_PENDING" ||
+      code === "DEVICE_UNAUTHORIZED" ||
+      code === "TUNNEL_LOST" ||
+      code === "NO_DEVICES"
+    ) {
+      return "warning";
+    }
+    if (code.startsWith("ADB_") || code === "START_TIMEOUT" || code.includes("FAILED") || code.includes("CRASHED") || code === "PORT_IN_USE") {
+      return "destructive";
+    }
+    return "default";
+  }
+
+  function selectDevice(serial: string) {
+    selectedSerial = serial;
+  }
 </script>
 
-<main class="app">
-  <header>
-    <h1>gnirehtet-gui</h1>
-    <p class="sub">
-      Phase 3 — quit-clean, ERROR_UX recovery, optional owned-relay client
-      probe. Three layers; never claim Sharing without handshake.
-    </p>
+<main class="mx-auto flex min-h-screen max-w-[920px] flex-col gap-3 p-4 pb-6">
+  <!-- Title / chrome -->
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="text-lg font-semibold tracking-tight text-fg">gnirehtet-gui</h1>
+      <Tooltip content="Phone uses this PC’s internet — not the other way.">
+        <Badge tone="info">Internet: This PC → Phone</Badge>
+      </Tooltip>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <Badge tone={chipTone(sessionChip)}>Session · {sessionChip}</Badge>
+      {#if adb}
+        <Badge tone="success">ADB · ok</Badge>
+        <span class="font-mono text-[12px] text-fg-subtle">{adb.version}</span>
+      {:else if adbErrorCode}
+        <Badge tone="danger">ADB · {adbErrorCode}</Badge>
+      {:else}
+        <Badge tone="muted">ADB · …</Badge>
+      {/if}
+    </div>
   </header>
 
-  <section class="status-bar" aria-live="polite">
-    <div class="chip">
-      <span class="label">Session</span>
-      <span
-        class:ok={sessionChip === "Idle"}
-        class:warn={sessionChip === "Waiting for VPN" || sessionChip === "Interrupted" || sessionChip === "Starting" || sessionChip === "Stopping"}
-        class:err={sessionChip === "Error"}>{sessionChip}</span
-      >
-    </div>
-    <div class="chip">
-      <span class="label">ADB</span>
-      {#if adb}
-        <span class="ok">ok</span>
-        <span class="muted">{adb.version}</span>
-      {:else if adbErrorCode}
-        <span class="err">{adbErrorCode}</span>
-      {:else}
-        <span class="muted">…</span>
-      {/if}
-    </div>
-    <div class="chip">
-      <span class="label">Device</span>
-      {#if selected}
-        <code>{selected.serial}</code>
-        <span class={deviceStateClass(selected.adbState)}
-          >{deviceStateLabel(selected.adbState)}</span
+  <!-- Three-layer strip -->
+  <section
+    class="grid grid-cols-1 gap-2 sm:grid-cols-3"
+    aria-label="Three-layer status"
+  >
+    <Card class="border-l-[3px] border-l-layer-relay px-3 py-2">
+      <div class="flex items-center justify-between gap-2">
+        <Tooltip content="PC process that phones connect to.">
+          <span class="text-[12px] font-semibold uppercase tracking-wide text-fg-subtle"
+            >Relay</span
+          >
+        </Tooltip>
+        <span
+          class="text-sm font-medium"
+          class:text-success={relayHealthy}
+          class:text-danger={relay.state === "relay_error" || relay.state === "relay_exited"}
+          class:text-warning={relay.state === "relay_starting"}
+          class:text-fg-muted={!relayHealthy && relay.state !== "relay_error" && relay.state !== "relay_exited" && relay.state !== "relay_starting"}
         >
-      {:else}
-        <span class="muted">none selected</span>
+          {relayHealthy ? "Listening" : relayLabel}
+        </span>
+      </div>
+      {#if relay.port}
+        <p class="mt-0.5 font-mono text-[12px] text-fg-subtle">:{relay.port}</p>
       {/if}
-    </div>
-  </section>
+    </Card>
 
-  <section class="layers" aria-label="Three-layer status">
-    <div class="layer">
-      <span class="label">Relay</span>
-      <span
-        class:ok={relayHealthy}
-        class:err={relay.state === "relay_error" || relay.state === "relay_exited"}
-        class:warn={relay.state === "relay_starting"}
-        >{relayHealthy ? "Listening" : relayLabel}</span
-      >
-      {#if relay.port}<span class="muted">:{relay.port}</span>{/if}
-      {#if relay.ownedBySession}<span class="ok">owned</span>{/if}
-    </div>
-    <div class="layer">
-      <span class="label">Tunnel</span>
-      <span
-        class:ok={layers.tunnel === "ok" || layers.clientAccepted}
-        class:err={layers.tunnel === "lost" || layers.tunnel === "failed"}
-        class:muted={layers.tunnel === "unknown" && !layers.clientAccepted}
-        >{tunnelLabel(layers.tunnel, layers.clientAccepted)}</span
-      >
+    <Card class="border-l-[3px] border-l-layer-tunnel px-3 py-2">
+      <div class="flex items-center justify-between gap-2">
+        <Tooltip content="USB reverse path from phone to this PC.">
+          <span class="text-[12px] font-semibold uppercase tracking-wide text-fg-subtle"
+            >Tunnel</span
+          >
+        </Tooltip>
+        <span
+          class="text-sm font-medium"
+          class:text-success={layers.tunnel === "ok" || layers.clientAccepted}
+          class:text-danger={layers.tunnel === "lost" || layers.tunnel === "failed"}
+          class:text-fg-muted={layers.tunnel === "unknown" && !layers.clientAccepted}
+        >
+          {tunnelLabel(layers.tunnel, layers.clientAccepted)}
+        </span>
+      </div>
       {#if layers.clientAccepted && layers.clientId != null}
-        <span class="muted tip">#{layers.clientId}</span>
+        <p class="mt-0.5 font-mono text-[12px] text-fg-subtle">#{layers.clientId}</p>
       {/if}
-    </div>
-    <div class="layer">
-      <span class="label">Device VPN</span>
-      <span
-        class:warn={layers.vpn === "pending"}
-        class:err={layers.vpn === "error"}
-        class:muted={layers.vpn === "idle"}>{vpnLabel(layers.vpn)}</span
-      >
-      <span class="muted tip"
-        >Pending until handshake (see HANDSHAKE_LIVENESS_MVP) — not Sharing</span
-      >
-    </div>
+    </Card>
+
+    <Card class="border-l-[3px] border-l-layer-vpn px-3 py-2">
+      <div class="flex items-center justify-between gap-2">
+        <Tooltip content="Phone VPN permission + helper handshake.">
+          <span class="text-[12px] font-semibold uppercase tracking-wide text-fg-subtle"
+            >Device VPN</span
+          >
+        </Tooltip>
+        <span
+          class="text-sm font-medium"
+          class:text-warning={layers.vpn === "pending"}
+          class:text-danger={layers.vpn === "error"}
+          class:text-fg-muted={layers.vpn === "idle"}
+        >
+          {vpnLabel(layers.vpn)}
+        </span>
+      </div>
+      {#if layers.vpn === "pending"}
+        <p class="mt-0.5 text-[12px] text-fg-muted">Waiting for phone to finish connecting</p>
+      {/if}
+    </Card>
   </section>
 
-  {#if adbBanner}
-    <div class="banner err" role="alert">
-      <strong>[{adbBanner.code}] {adbBanner.title}</strong>
-      <p>{adbBanner.explanation}</p>
-      <p class="muted">{adbBanner.recoveryHint}</p>
-    </div>
-  {/if}
-  {#if authBanner}
-    <div class="banner warn" role="status">
-      <strong>[{authBanner.code}] {authBanner.title}</strong>
-      <p>{authBanner.explanation}</p>
-      <div class="actions tight">
-        <button type="button" onclick={() => refreshDevices()} disabled={busy}>
-          I’ve allowed it (refresh)
-        </button>
+  <!-- Body: devices + session -->
+  <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+    <Card class="flex flex-col gap-2 p-3">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-base font-semibold text-fg">Devices</h2>
+        <Button variant="ghost" size="sm" onclick={() => refreshAll()} disabled={busy}>
+          Refresh devices
+        </Button>
       </div>
-    </div>
-  {/if}
-  {#if emptyBanner}
-    <div class="banner" role="status">
-      <strong>[{emptyBanner.code}] {emptyBanner.title}</strong>
-      <p>{emptyBanner.explanation}</p>
-      <p class="muted">{emptyBanner.recoveryHint}</p>
-    </div>
-  {/if}
-  {#if vpnBanner && !adbBanner}
-    <div
-      class="banner"
-      class:warn={vpnBanner.code === "VPN_PERMISSION_PENDING" || vpnBanner.code === "TUNNEL_LOST"}
-      class:err={vpnBanner.code === "START_TIMEOUT"}
-      role="status"
-    >
-      <strong>[{vpnBanner.code}] {vpnBanner.title}</strong>
-      <p>{vpnBanner.explanation}</p>
-      <p class="muted">{vpnBanner.recoveryHint}</p>
-      <div class="actions tight">
-        {#if vpnBanner.code === "VPN_PERMISSION_PENDING"}
-          <button type="button" onclick={onIveAllowedVpn} disabled={busy}>
-            I’ve allowed it (recheck)
-          </button>
-          <button type="button" onclick={onStop} disabled={busy || stopping}>Stop</button>
-        {:else if vpnBanner.code === "TUNNEL_LOST"}
-          <button type="button" class="primary" onclick={onRepairTunnel} disabled={!canAct}>
-            Repair tunnel
-          </button>
-          <button type="button" onclick={onStop} disabled={busy || stopping}>Stop</button>
-        {:else}
-          <button type="button" class="primary" onclick={onRun} disabled={!canAct}>Retry Run</button>
-          <button type="button" onclick={onStop} disabled={busy || stopping}>Stop</button>
-        {/if}
-      </div>
-    </div>
-  {/if}
-  {#if recoveryBanner && !adbBanner}
-    <div class="banner err recovery" role="alert">
-      <strong>[{recoveryBanner.code}] {recoveryBanner.title}</strong>
-      <p>{recoveryBanner.explanation}</p>
-      <p class="muted">{recoveryBanner.recoveryHint}</p>
-      {#if actionError}<p class="muted">{actionError}</p>{/if}
-      <div class="actions tight">
-        {#if recoveryBanner.code === "APK_MISSING"}
-          <button type="button" class="primary" onclick={onInstall} disabled={!canAct}>
-            Retry Install
-          </button>
-          <button type="button" onclick={() => refreshAll()} disabled={busy}>Refresh paths</button>
-        {:else if recoveryBanner.code === "INSTALL_FAILED"}
-          <button type="button" class="primary" onclick={onInstall} disabled={!canAct}>
-            Reinstall helper
-          </button>
-          <button type="button" onclick={onRun} disabled={!canAct}>Retry Run</button>
-        {:else if recoveryBanner.code === "TUNNEL_FAILED"}
-          <button type="button" class="primary" onclick={onRepairTunnel} disabled={!canAct}>
-            Repair tunnel
-          </button>
-          <button type="button" onclick={onRun} disabled={!canAct}>Retry Run</button>
-        {:else if recoveryBanner.code === "RELAY_CRASHED" || recoveryBanner.code === "RELAY_START_FAILED" || recoveryBanner.code === "PORT_IN_USE"}
-          <button type="button" class="primary" onclick={onRun} disabled={!canAct}>Restart Run</button>
-          <button type="button" onclick={onStop} disabled={busy || stopping}>Stop</button>
-        {:else}
-          <button type="button" class="primary" onclick={onRun} disabled={!canAct}>Retry Run</button>
-          <button type="button" onclick={onStop} disabled={busy || stopping}>Stop</button>
-        {/if}
-      </div>
-    </div>
-  {/if}
-  {#if actionBanner}
-    <div class="banner err" role="alert">
-      {#if actionBanner.kind === "ux"}
-        <strong>[{actionBanner.ux.code}] {actionBanner.ux.title}</strong>
-        <p>{actionBanner.ux.explanation}</p>
-        <p class="muted">{actionBanner.ux.recoveryHint}</p>
-        <p class="muted">{actionBanner.raw}</p>
-      {:else}
-        {actionBanner.raw}
-      {/if}
-    </div>
-  {/if}
 
-  <div class="grid">
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Devices</h2>
-        <button type="button" onclick={() => refreshAll()} disabled={busy}>
-          Refresh
-        </button>
-      </div>
       {#if devicesError && !adbBanner}
-        <p class="err">{devicesError}</p>
+        <p class="text-sm text-danger">{devicesError}</p>
       {:else if devices.length === 0}
-        <p class="muted">
-          No devices. Plug in USB and enable debugging. List polls every
-          {DEVICE_POLL_VISIBLE_MS / 1000}s while visible.
-        </p>
+        <div class="rounded-md border border-dashed border-border bg-bg-muted px-3 py-6 text-center">
+          <p class="text-sm text-fg-muted">
+            No devices. Plug in USB, enable debugging, unlock, and accept Allow USB debugging.
+          </p>
+          <p class="mt-1 text-[12px] text-fg-subtle">
+            List polls every {DEVICE_POLL_VISIBLE_MS / 1000}s while visible.
+          </p>
+        </div>
       {:else}
-        <ul class="devices">
+        <ul class="flex flex-col gap-1.5" role="listbox" aria-label="Device list">
           {#each devices as d}
             <li>
-              <label>
-                <input
-                  type="radio"
-                  name="serial"
-                  value={d.serial}
-                  bind:group={selectedSerial}
-                />
-                <code>{d.serial}</code>
-                <span class="state {deviceStateClass(d.adbState)}"
-                  >{deviceStateLabel(d.adbState)}</span
+              <button
+                type="button"
+                role="option"
+                aria-selected={selectedSerial === d.serial}
+                class="w-full text-left"
+                onclick={() => selectDevice(d.serial)}
+              >
+                <Card
+                  selected={selectedSerial === d.serial}
+                  class="flex items-center gap-2 px-2.5 py-2 hover:bg-bg-muted/80"
                 >
-                {#if d.model}<span class="muted">{d.model}</span>{/if}
-              </label>
+                  <code class="font-mono text-[13px] text-fg">{d.serial}</code>
+                  <Badge tone={deviceTone(deviceStateClass(d.adbState))}
+                    >{deviceStateLabel(d.adbState)}</Badge
+                  >
+                  {#if d.model}
+                    <span class="ml-auto truncate text-[12px] text-fg-muted">{d.model}</span>
+                  {/if}
+                </Card>
+              </button>
             </li>
           {/each}
         </ul>
       {/if}
-      {#if selected}
-        <p class="muted select-hint">
-          Selected: <code>{selected.serial}</code>
-          ({deviceStateLabel(selected.adbState)})
-        </p>
-      {/if}
-    </section>
+    </Card>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Session actions</h2>
+    <Card class="flex flex-col gap-3 p-3">
+      <h2 class="text-base font-semibold text-fg">Session</h2>
+
+      <!-- Primary CTA hierarchy -->
+      <div class="flex flex-col gap-2">
+        {#if interrupted}
+          <Button
+            variant="default"
+            size="lg"
+            class="w-full"
+            onclick={onRepairTunnel}
+            disabled={!canAct}
+          >
+            Repair tunnel
+          </Button>
+          <Button variant="destructive" onclick={onStop} disabled={!adbOk || !selectedSerial || busy || stopping}>
+            {stopping ? "Stopping…" : "Stop"}
+          </Button>
+        {:else if waitingVpn}
+          <Button variant="secondary" size="lg" class="w-full" onclick={onIveAllowedVpn} disabled={busy}>
+            I’ve allowed it
+          </Button>
+          <Button variant="destructive" onclick={onStop} disabled={busy || stopping}>
+            {stopping ? "Stopping…" : "Stop"}
+          </Button>
+        {:else if sessionChip === "Starting"}
+          <Button variant="default" size="lg" class="w-full" disabled>
+            Starting…
+          </Button>
+          <Button
+            variant="destructive"
+            onclick={onStop}
+            disabled={!adbOk || !selectedSerial || stopping}
+          >
+            Stop
+          </Button>
+        {:else if sessionChip === "Stopping"}
+          <Button variant="destructive" size="lg" class="w-full" disabled>
+            Stopping…
+          </Button>
+        {:else}
+          <Button
+            variant="default"
+            size="lg"
+            class="w-full"
+            onclick={onRun}
+            disabled={!canAct}
+          >
+            {busy ? "Starting…" : "Run"}
+          </Button>
+          <p class="text-[12px] text-fg-muted">Share this PC’s network</p>
+          {#if relay.ownedBySession || layers.vpn === "pending"}
+            <Button
+              variant="destructive"
+              onclick={onStop}
+              disabled={!adbOk || !selectedSerial || busy || stopping}
+            >
+              {stopping ? "Stopping…" : "Stop"}
+            </Button>
+          {/if}
+        {/if}
       </div>
-      <p class="muted">
-        Run ≈ install-if-needed → tunnel → start + session-owned relay. Stop =
-        stop client + clear owned relay. Sharing is not claimed without
-        handshake.
-      </p>
-      <div class="actions wrap">
-        <button type="button" onclick={onInstall} disabled={!canAct}>Install</button>
-        <button type="button" onclick={onRepairTunnel} disabled={!canAct}>
-          Repair tunnel
-        </button>
-        <button type="button" class="primary" onclick={onRun} disabled={!canAct}>
-          {busy ? "Starting…" : "Run"}
-        </button>
-        <button
-          type="button"
-          onclick={onStop}
-          disabled={!adbOk || !selectedSerial || busy || stopping}
-        >
-          {stopping ? "Stopping…" : "Stop"}
-        </button>
+
+      <div class="flex flex-wrap gap-2">
+        {#if !interrupted}
+          <Button variant="secondary" size="sm" onclick={onRepairTunnel} disabled={!canAct}>
+            Repair tunnel
+          </Button>
+        {/if}
+        <Button variant="ghost" size="sm" onclick={onInstall} disabled={!canAct}>
+          Install helper
+        </Button>
       </div>
-      <hr class="sep" />
-      <p class="muted">Relay-only (advanced):</p>
-      <div class="actions">
-        <button type="button" onclick={onStartRelay} disabled={busy || stopping}>
-          Start Relay
-        </button>
-        <button
-          type="button"
-          onclick={onStopRelay}
-          disabled={busy || stopping || !relay.ownedBySession}
-        >
-          Stop Relay
-        </button>
-      </div>
-      {#if relay.message}
-        <p class="muted">{relay.message}</p>
-      {/if}
-    </section>
+
+      <Separator />
+
+      <Collapsible bind:open={advancedOpen}>
+        {#snippet trigger({ open, toggle })}
+          <Button variant="ghost" size="sm" class="px-1" onclick={toggle}>
+            {open ? "▾" : "▸"} Advanced
+          </Button>
+        {/snippet}
+        <div class="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onclick={onStartRelay} disabled={busy || stopping}>
+            Start Relay
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onclick={onStopRelay}
+            disabled={busy || stopping || !relay.ownedBySession}
+          >
+            Stop Relay
+          </Button>
+        </div>
+        {#if relay.message}
+          <p class="mt-1.5 text-[12px] text-fg-muted">{relay.message}</p>
+        {/if}
+      </Collapsible>
+    </Card>
   </div>
 
-  <section class="panel logs">
-    <div class="panel-head">
-      <h2>Logs</h2>
-      <button type="button" onclick={() => (logs = [])}>Clear</button>
-    </div>
-    <pre class="log-pane">{#each logs as line}{new Date(line.timestampMs).toISOString()} [{line.level}] {line.source}: {line.message}
+  <!-- Single contextual banner -->
+  {#if bannerSlot}
+    {@const ux =
+      bannerSlot.kind === "action"
+        ? bannerSlot.payload.kind === "ux"
+          ? bannerSlot.payload.ux
+          : null
+        : bannerSlot.ux}
+    {@const code = ux?.code ?? (bannerSlot.kind === "action" ? lastAppError?.code : undefined)}
+    <Alert variant={alertVariantFor(code)} role={bannerSlot.kind === "adb" || bannerSlot.kind === "recovery" ? "alert" : "status"}>
+      {#if ux}
+        <strong class="font-semibold">[{ux.code}] {ux.title}</strong>
+        <p class="mt-1 text-sm text-fg">{ux.explanation}</p>
+        <p class="mt-0.5 text-[12px] text-fg-muted">{ux.recoveryHint}</p>
+      {:else if bannerSlot.kind === "action" && bannerSlot.payload.kind === "raw"}
+        <p class="text-sm">{bannerSlot.payload.raw}</p>
+      {/if}
+      {#if bannerSlot.kind === "action" && bannerSlot.payload.kind === "ux"}
+        <p class="mt-0.5 font-mono text-[12px] text-fg-subtle">{bannerSlot.payload.raw}</p>
+      {/if}
+      {#if bannerSlot.kind === "recovery" && actionError}
+        <p class="mt-0.5 font-mono text-[12px] text-fg-subtle">{actionError}</p>
+      {/if}
+
+      <div class="mt-2 flex flex-wrap gap-2">
+        {#if bannerSlot.kind === "auth"}
+          <Button variant="secondary" size="sm" onclick={() => refreshDevices()} disabled={busy}>
+            I’ve allowed it
+          </Button>
+        {:else if bannerSlot.kind === "vpn" && ux}
+          {#if ux.code === "VPN_PERMISSION_PENDING"}
+            <Button variant="secondary" size="sm" onclick={onIveAllowedVpn} disabled={busy}>
+              I’ve allowed it
+            </Button>
+            <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
+          {:else if ux.code === "TUNNEL_LOST"}
+            <Button variant="default" size="sm" onclick={onRepairTunnel} disabled={!canAct}>
+              Repair tunnel
+            </Button>
+            <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
+          {:else}
+            <Button variant="default" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
+            <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
+          {/if}
+        {:else if bannerSlot.kind === "recovery" && ux}
+          {#if ux.code === "APK_MISSING"}
+            <Button variant="default" size="sm" onclick={onInstall} disabled={!canAct}>Retry Install</Button>
+            <Button variant="ghost" size="sm" onclick={() => refreshAll()} disabled={busy}>Refresh paths</Button>
+          {:else if ux.code === "INSTALL_FAILED"}
+            <Button variant="default" size="sm" onclick={onInstall} disabled={!canAct}>Reinstall helper</Button>
+            <Button variant="secondary" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
+          {:else if ux.code === "TUNNEL_FAILED"}
+            <Button variant="default" size="sm" onclick={onRepairTunnel} disabled={!canAct}>Repair tunnel</Button>
+            <Button variant="secondary" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
+          {:else if ux.code === "RELAY_CRASHED" || ux.code === "RELAY_START_FAILED" || ux.code === "PORT_IN_USE"}
+            <Button variant="default" size="sm" onclick={onRun} disabled={!canAct}>Restart Run</Button>
+            <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
+          {:else}
+            <Button variant="default" size="sm" onclick={onRun} disabled={!canAct}>Retry Run</Button>
+            <Button variant="destructive" size="sm" onclick={onStop} disabled={busy || stopping}>Stop</Button>
+          {/if}
+        {:else if bannerSlot.kind === "empty"}
+          <Button variant="ghost" size="sm" onclick={() => refreshAll()} disabled={busy}>Refresh devices</Button>
+        {/if}
+      </div>
+    </Alert>
+  {/if}
+
+  <!-- Logs -->
+  <Card class="p-3">
+    <Collapsible bind:open={logsOpen}>
+      {#snippet trigger({ open, toggle })}
+        <div class="flex items-center justify-between gap-2">
+          <Button variant="ghost" size="sm" class="px-1" onclick={toggle}>
+            {open ? "▾" : "▸"} Logs
+          </Button>
+          <Button variant="ghost" size="sm" onclick={() => (logs = [])}>Clear</Button>
+        </div>
+      {/snippet}
+      <ScrollArea class="log-pane mt-2 max-h-[240px] rounded-md border border-border-subtle bg-bg-muted px-2.5 py-2 text-[12px] leading-relaxed text-fg">
+        <pre class="m-0 whitespace-pre-wrap break-words font-mono">{#each logs as line}{new Date(line.timestampMs).toISOString()} [{line.level}] {line.source}: {line.message}
 {/each}</pre>
-  </section>
+      </ScrollArea>
+    </Collapsible>
+  </Card>
 </main>
 
-<style>
-  :root {
-    font-family: Inter, system-ui, sans-serif;
-    color: #e8eaed;
-    background: #12141a;
-    line-height: 1.45;
-  }
-  :global(body) {
-    margin: 0;
-    background: #12141a;
-  }
-  .app {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 1.25rem 1.5rem 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-  header h1 {
-    margin: 0;
-    font-size: 1.5rem;
-  }
-  .sub {
-    margin: 0.25rem 0 0;
-    color: #9aa0a6;
-    font-size: 0.9rem;
-  }
-  .status-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-  .chip,
-  .layer {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: #1e222b;
-    border: 1px solid #2a2f3a;
-    border-radius: 999px;
-    padding: 0.35rem 0.75rem;
-    font-size: 0.85rem;
-  }
-  .chip .label,
-  .layer .label {
-    font-weight: 600;
-    color: #9aa0a6;
-    text-transform: uppercase;
-    font-size: 0.7rem;
-    letter-spacing: 0.04em;
-  }
-  .layers {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  .layer {
-    border-radius: 8px;
-  }
-  .layer .tip {
-    font-size: 0.7rem;
-  }
-  .grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-  }
-  @media (max-width: 720px) {
-    .grid {
-      grid-template-columns: 1fr;
-    }
-  }
-  .panel {
-    background: #1a1d24;
-    border: 1px solid #2a2f3a;
-    border-radius: 10px;
-    padding: 0.9rem 1rem;
-  }
-  .panel-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-  }
-  .panel-head h2 {
-    margin: 0;
-    font-size: 1.05rem;
-  }
-  .devices {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .devices li {
-    padding: 0.35rem 0;
-    border-bottom: 1px solid #2a2f3a;
-  }
-  .devices label {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    cursor: pointer;
-  }
-  .state {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-  }
-  .select-hint {
-    margin-top: 0.75rem;
-  }
-  .actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-    flex-wrap: wrap;
-  }
-  .actions.tight {
-    margin-top: 0.5rem;
-  }
-  .actions.wrap {
-    flex-wrap: wrap;
-  }
-  .sep {
-    border: none;
-    border-top: 1px solid #2a2f3a;
-    margin: 1rem 0 0.5rem;
-  }
-  button {
-    border-radius: 8px;
-    border: 1px solid #3c4454;
-    background: #252a35;
-    color: inherit;
-    padding: 0.45rem 0.9rem;
-    font: inherit;
-    cursor: pointer;
-  }
-  button:hover:not(:disabled) {
-    border-color: #5b8def;
-  }
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  button.primary {
-    background: #1a73e8;
-    border-color: #1a73e8;
-  }
-  .banner {
-    padding: 0.6rem 0.8rem;
-    border-radius: 8px;
-    background: #1e222b;
-    border: 1px solid #3c4454;
-  }
-  .banner p {
-    margin: 0.35rem 0 0;
-  }
-  .banner.err {
-    background: #3b1d1d;
-    border-color: #8b3a3a;
-  }
-  .banner.warn {
-    background: #3b3218;
-    border-color: #a67c2a;
-  }
-  .banner.recovery {
-    order: -1;
-    box-shadow: 0 0 0 1px #8b3a3a;
-  }
-  .ok {
-    color: #81c995;
-  }
-  .warn {
-    color: #fdd663;
-  }
-  .err {
-    color: #f28b82;
-  }
-  .muted {
-    color: #9aa0a6;
-    font-size: 0.9rem;
-  }
-  .logs .log-pane {
-    margin: 0;
-    max-height: 280px;
-    overflow: auto;
-    background: #0e1014;
-    border-radius: 6px;
-    padding: 0.6rem 0.75rem;
-    font-size: 0.78rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.85em;
-  }
-</style>
+<Dialog
+  bind:open={quitDialogOpen}
+  title="Stop sharing and quit?"
+  description="An active session will be torn down (stop client + clear owned relay) before the window closes."
+  confirmLabel={quitPending ? "Quitting…" : "Stop and quit"}
+  cancelLabel="Cancel"
+  confirmVariant="destructive"
+  onConfirm={finishQuit}
+/>

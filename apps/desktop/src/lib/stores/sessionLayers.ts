@@ -213,10 +213,10 @@ export function tunnelLabel(t: TunnelLayer, clientAccepted = false): string {
 export function vpnLabel(v: VpnLayer): string {
   switch (v) {
     case "pending":
-      return "Pending";
+      return "Waiting";
     case "error":
       return "Error";
     default:
-      return "Idle";
+      return "Off";
   }
 }
