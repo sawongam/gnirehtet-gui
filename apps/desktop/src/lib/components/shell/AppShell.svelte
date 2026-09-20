@@ -38,12 +38,20 @@
   let search = $state("");
   let dark = $state(false);
 
-  const navItems: { id: NavId; label: string; icon: typeof LayoutDashboard }[] = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "devices", label: "Devices", icon: Smartphone },
-    { id: "traffic", label: "Traffic", icon: Activity },
-    { id: "logs", label: "Logs", icon: ScrollText },
-    { id: "settings", label: "Settings", icon: Settings },
+  type NavEntry =
+    | { kind: "label"; label: string }
+    | { kind: "item"; id: NavId; label: string; icon: typeof LayoutDashboard };
+
+  /** V3 §20 section labels: (none) Dashboard · DEVICES · MONITORING · SYSTEM */
+  const navEntries: NavEntry[] = [
+    { kind: "item", id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { kind: "label", label: "Devices" },
+    { kind: "item", id: "devices", label: "Devices", icon: Smartphone },
+    { kind: "label", label: "Monitoring" },
+    { kind: "item", id: "traffic", label: "Traffic", icon: Activity },
+    { kind: "item", id: "logs", label: "Logs", icon: ScrollText },
+    { kind: "label", label: "System" },
+    { kind: "item", id: "settings", label: "Settings", icon: Settings },
   ];
 
   function toggleTheme() {
@@ -71,30 +79,44 @@
     </div>
 
     <nav class="flex flex-1 flex-col gap-1 px-3">
-      {#each navItems as item}
-        {@const Icon = item.icon}
-        {@const active = activeNav === item.id}
-        <button
-          type="button"
-          class={cn(
-            "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
-            active
-              ? "bg-accent-50 text-accent"
-              : "text-fg-body hover:bg-bg-muted hover:text-fg",
-          )}
-          aria-current={active ? "page" : undefined}
-          onclick={() => (activeNav = item.id)}
-        >
-          <Icon class="size-4 shrink-0" strokeWidth={active ? 2.25 : 2} />
-          <span class="flex-1 text-left">{item.label}</span>
-          {#if item.id === "devices" && deviceCount > 0}
-            <span
-              class="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-accent-fg"
-            >
-              {deviceCount}
-            </span>
-          {/if}
-        </button>
+      {#each navEntries as entry}
+        {#if entry.kind === "label"}
+          <p
+            class="mt-3 px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-fg-subtle first:mt-0"
+          >
+            {entry.label}
+          </p>
+        {:else}
+          {@const Icon = entry.icon}
+          {@const active = activeNav === entry.id}
+          <button
+            type="button"
+            class={cn(
+              "relative flex h-10 items-center gap-3 rounded-[var(--radius)] px-3 text-sm font-medium transition-colors",
+              active
+                ? "bg-accent-50 text-accent"
+                : "text-fg-body hover:bg-bg-muted hover:text-fg",
+            )}
+            aria-current={active ? "page" : undefined}
+            onclick={() => (activeNav = entry.id)}
+          >
+            {#if active}
+              <span
+                class="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-sm bg-accent"
+                aria-hidden="true"
+              ></span>
+            {/if}
+            <Icon class="size-4 shrink-0" strokeWidth={active ? 2.25 : 2} />
+            <span class="flex-1 text-left">{entry.label}</span>
+            {#if entry.id === "devices" && deviceCount > 0}
+              <span
+                class="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-accent-fg"
+              >
+                {deviceCount}
+              </span>
+            {/if}
+          </button>
+        {/if}
       {/each}
     </nav>
 

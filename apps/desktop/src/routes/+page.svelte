@@ -78,10 +78,10 @@
     Lightbulb,
     Laptop,
     Smartphone,
-    ArrowDownUp,
     Clock,
     Wrench,
     CircleCheck,
+    ShieldCheck,
     AlertTriangle,
   } from "@lucide/svelte";
 
@@ -458,7 +458,7 @@
       adb = { path: "/usr/bin/adb", version: "1.0.41", available: true };
       adbErrorCode = null;
       devices = [
-        { serial: "3A7E1F2C", adbState: "device", model: "Pixel 8" },
+        { serial: "3A7E1F2C", adbState: "device", model: "Pixel 8", androidVersion: "14" },
       ];
       selectedSerial = "3A7E1F2C";
       relay = { state: "relay_stopped", ownedBySession: false };
@@ -469,7 +469,7 @@
       adb = { path: "/usr/bin/adb", version: "1.0.41", available: true };
       adbErrorCode = null;
       devices = [
-        { serial: "emulator-5554", adbState: "device", model: "Pixel Preview" },
+        { serial: "emulator-5554", adbState: "device", model: "Pixel Preview", androidVersion: "14" },
       ];
       selectedSerial = "emulator-5554";
       relay = {
@@ -491,7 +491,7 @@
       adb = { path: "/usr/bin/adb", version: "1.0.41", available: true };
       adbErrorCode = null;
       devices = [
-        { serial: "3A7E1F2C", adbState: "device", model: "Pixel 8" },
+        { serial: "3A7E1F2C", adbState: "device", model: "Pixel 8", androidVersion: "14" },
       ];
       selectedSerial = "3A7E1F2C";
       relay = {
@@ -804,9 +804,25 @@
   });
 
   function shortSerial(serial: string): string {
-    if (serial.length <= 12) return serial;
-    return `${serial.slice(0, 4)}-${serial.slice(4, 8)}-…`;
+    const clean = serial.replace(/[^a-zA-Z0-9]/g, "");
+    if (clean.length <= 8) {
+      return clean.match(/.{1,4}/g)?.join("-") ?? serial;
+    }
+    return `${clean.slice(0, 4)}-${clean.slice(4, 8)}-…`;
   }
+
+  /** Devices panel badge: "N connected" only when Sharing/preview; else "N device(s)". */
+  const devicesReadyCount = $derived(
+    devices.filter((d) => d.adbState === "device").length,
+  );
+  const devicesBadgeText = $derived.by(() => {
+    const n = devicesReadyCount;
+    if (n <= 0) return null;
+    if (showConnectedHero) {
+      return `${n} connected`;
+    }
+    return n === 1 ? "1 device" : `${n} devices`;
+  });
 </script>
 <AppShell
   bind:activeNav
@@ -860,9 +876,10 @@
                     <div class="flex flex-1 flex-col items-center gap-1">
                       <div class="h-px w-full border-t border-dashed border-success/50"></div>
                       <div
-                        class="flex size-8 items-center justify-center rounded-full bg-success text-white"
+                        class="flex size-8 items-center justify-center rounded-full bg-success text-white shadow-sm"
+                        title="Tunnel healthy"
                       >
-                        <ArrowDownUp class="size-4" />
+                        <ShieldCheck class="size-4" strokeWidth={2.25} />
                       </div>
                     </div>
                     <div class="flex flex-col items-center gap-1.5">
@@ -1083,12 +1100,10 @@
               <div class="rounded-[var(--radius)] bg-bg-muted/80 px-3 py-3">
                 <p class="text-xs text-fg-muted">Download</p>
                 <p class="mt-1 font-mono text-xl font-semibold text-fg-subtle">—</p>
-                <p class="text-xs text-fg-subtle">No live data</p>
               </div>
               <div class="rounded-[var(--radius)] bg-bg-muted/80 px-3 py-3">
                 <p class="text-xs text-fg-muted">Upload</p>
                 <p class="mt-1 font-mono text-xl font-semibold text-fg-subtle">—</p>
-                <p class="text-xs text-fg-subtle">No live data</p>
               </div>
               <div class="rounded-[var(--radius)] bg-bg-muted/80 px-3 py-3">
                 <p class="text-xs text-fg-muted">Total transferred</p>
@@ -1105,7 +1120,7 @@
             <div
               class="mt-4 flex h-36 items-center justify-center rounded-[var(--radius)] border border-dashed border-border bg-bg-muted/50"
             >
-              <p class="text-sm text-fg-muted">Traffic graphs deferred until real counters exist</p>
+              <p class="text-sm text-fg-muted">Coming soon</p>
             </div>
           </Card>
 
@@ -1219,10 +1234,8 @@
             <div class="mb-3 flex items-center justify-between gap-2">
               <div class="flex items-center gap-2">
                 <h2 class="text-[15px] font-semibold text-fg">Devices</h2>
-                {#if devices.filter((d) => d.adbState === "device").length > 0}
-                  <Badge tone="success"
-                    >{devices.filter((d) => d.adbState === "device").length} connected</Badge
-                  >
+                {#if devicesBadgeText}
+                  <Badge tone="success">{devicesBadgeText}</Badge>
                 {/if}
               </div>
               <button
@@ -1269,13 +1282,21 @@
                         class:border-border={selectedSerial !== d.serial}
                         class:bg-bg-elevated={selectedSerial !== d.serial}
                       >
+                        <!-- Phone thumb ~48×64 -->
                         <div
-                          class="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius)] bg-bg-muted"
+                          class="flex h-16 w-12 shrink-0 flex-col items-center justify-center rounded-[10px] border-2 border-slate-800 bg-slate-900 shadow-sm"
+                          aria-hidden="true"
                         >
-                          <Smartphone class="size-4 text-fg-muted" />
+                          <div class="mb-0.5 h-0.5 w-3 rounded-full bg-slate-600"></div>
+                          <div
+                            class="flex h-10 w-7 items-center justify-center rounded-sm bg-success-soft"
+                          >
+                            <Smartphone class="size-3.5 text-success-strong" strokeWidth={2.25} />
+                          </div>
+                          <div class="mt-1 h-1 w-1 rounded-full bg-slate-600"></div>
                         </div>
                         <div class="min-w-0 flex-1">
-                          <div class="flex items-center gap-2">
+                          <div class="flex flex-wrap items-center gap-2">
                             <span class="truncate text-sm font-semibold text-fg"
                               >{d.model ?? d.serial}</span
                             >
@@ -1283,13 +1304,21 @@
                               >{d.adbState === "device" ? "Online" : deviceStateLabel(d.adbState)}</Badge
                             >
                           </div>
-                          <p class="mt-0.5 flex items-center gap-1.5 text-xs text-fg-muted">
-                            {#if d.model}
-                              <span>Android</span>
-                              <span aria-hidden="true">·</span>
+                          <p class="mt-1 text-xs text-fg-muted">
+                            {#if d.androidVersion}
+                              Android {d.androidVersion}
+                            {:else if d.model}
+                              Android
                             {/if}
-                            <Usb class="size-3" />
+                          </p>
+                          <p class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-fg-muted">
                             <span class="font-mono">SN: {shortSerial(d.serial)}</span>
+                            <span
+                              class="inline-flex items-center gap-1 rounded-full border border-border bg-bg-elevated px-1.5 py-0.5 text-[11px] text-fg-subtle"
+                            >
+                              <Usb class="size-3" />
+                              USB
+                            </span>
                           </p>
                         </div>
                         <MoreHorizontal class="size-4 shrink-0 text-fg-subtle" />
@@ -1312,7 +1341,7 @@
                   <Button
                     variant="outline"
                     size="sm"
-                    class="flex-1"
+                    class="flex-1 border-border text-accent hover:bg-accent-50"
                     onclick={onRepairTunnel}
                     disabled={!canAct}
                   >
@@ -1338,7 +1367,7 @@
             </div>
             <div class="min-w-0 flex-1">
               <p class="text-sm font-semibold text-fg">Install client</p>
-              <p class="text-xs text-fg-body">Install the Gnirehtet client on your device</p>
+              <p class="text-xs text-fg-body">Install the Gnirehtet client on your device.</p>
             </div>
             <ChevronRight class="size-4 shrink-0 text-accent" />
           </button>

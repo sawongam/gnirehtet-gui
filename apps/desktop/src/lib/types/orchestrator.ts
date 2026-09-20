@@ -12,6 +12,8 @@ export type DeviceInfo = {
   adbState: string;
   model?: string | null;
   product?: string | null;
+  /** Optional Android version label when known (e.g. "14"). */
+  androidVersion?: string | null;
 };
 
 /** DeviceChanged event — full list snapshot (MVP replace-all). */
