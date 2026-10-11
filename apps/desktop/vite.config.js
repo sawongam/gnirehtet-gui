@@ -4,8 +4,8 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import process from "node:process";
 const host = process.env.TAURI_DEV_HOST;
 
-// Tailwind via PostCSS (@tailwindcss/postcss) — avoids @tailwindcss/vite
-// mis-parsing Svelte virtual style modules as CSS.
+// Tailwind runs through PostCSS: the Vite plugin mis-parses Svelte virtual
+// style modules.
 export default defineConfig(() => ({
   plugins: [sveltekit()],
   clearScreen: false,
@@ -26,5 +26,8 @@ export default defineConfig(() => ({
     watch: {
       ignored: ["**/src-tauri/**"],
     },
+  },
+  test: {
+    include: ["src/**/*.test.ts"],
   },
 }));

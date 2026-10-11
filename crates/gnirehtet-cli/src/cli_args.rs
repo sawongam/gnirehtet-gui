@@ -73,7 +73,7 @@ impl CommandLineArguments {
             } else if (accepted_parameters & PARAM_SERIAL) != 0 && serial.is_none() {
                 serial = Some(arg);
             } else {
-                return Err(format!("Unexpected argument: \"{}\"", arg));
+                return Err(format!("Unexpected argument: \"{arg}\""));
             }
         }
         if port == 0 {

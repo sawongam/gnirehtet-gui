@@ -14,26 +14,16 @@
  * limitations under the License.
  */
 
-use log::*;
 use crate::buffer::ByteBuffer;
+use crate::client::background_command;
+use log::*;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::process;
 use std::str;
 use std::thread;
 use std::time::Duration;
 
 const TAG: &str = "AdbMonitor";
-
-
-fn default_adb_path() -> String {
-    if let Some(env_adb) = std::env::var_os("ADB") {
-        env_adb.into_string().expect("invalid ADB value")
-    } else {
-        "adb".to_string()
-    }
-}
-
 
 pub trait AdbMonitorCallback {
     fn on_new_device_connected(&self, serial: &str);
@@ -47,6 +37,7 @@ where
         self(serial);
     }
 }
+
 pub struct AdbMonitor {
     callback: Box<dyn AdbMonitorCallback>,
     buf: ByteBuffer,
@@ -62,15 +53,17 @@ impl AdbMonitor {
     const RETRY_DELAY_ADB_DAEMON_KO: u64 = 5000;
 
     pub fn new(callback: Box<dyn AdbMonitorCallback>) -> Self {
-        Self::with_adb_path(callback, default_adb_path())
+        Self::with_adb_path(
+            callback,
+            crate::client::default_adb_path().to_string_lossy(),
+        )
     }
 
-    pub fn with_adb_path(callback: Box<dyn AdbMonitorCallback>, adb_path: impl Into<String>) -> Self {
-        Self::with_config(
-            callback,
-            adb_path,
-            SocketAddr::from(([127, 0, 0, 1], 5037)),
-        )
+    pub fn with_adb_path(
+        callback: Box<dyn AdbMonitorCallback>,
+        adb_path: impl Into<String>,
+    ) -> Self {
+        Self::with_config(callback, adb_path, SocketAddr::from(([127, 0, 0, 1], 5037)))
     }
 
     pub fn with_config(
@@ -90,7 +83,7 @@ impl AdbMonitor {
     pub fn monitor(&mut self) {
         loop {
             if let Err(err) = self.track_devices() {
-                error!(target: TAG, "Failed to monitor adb devices: {}", err);
+                error!(target: TAG, "Failed to monitor adb devices: {err}");
                 self.repair_adb_daemon();
             }
         }
@@ -171,7 +164,7 @@ impl AdbMonitor {
             if len > Self::BUFFER_SIZE as u32 {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    format!("Packet size should not be that big: {}", len),
+                    format!("Packet size should not be that big: {len}"),
                 ));
             }
             if input.len() - 4usize >= len as usize {
@@ -215,13 +208,13 @@ impl AdbMonitor {
         let hexa = str::from_utf8(data).map_err(|err| {
             io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("Cannot read hexa length as UTF-8 ({})", err),
+                format!("Cannot read hexa length as UTF-8 ({err})"),
             )
         })?;
         u32::from_str_radix(hexa, 0x10).map_err(|err| {
             io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("Cannot parse hexa length ({})", err),
+                format!("Cannot parse hexa length ({err})"),
             )
         })
     }
@@ -236,8 +229,8 @@ impl AdbMonitor {
 
     fn start_adb_daemon(&self) -> bool {
         info!(target: TAG, "Restarting adb daemon");
-        match process::Command::new(&self.adb_path)
-            .args(&["start-server"])
+        match background_command(&self.adb_path)
+            .args(["start-server"])
             .status()
         {
             Ok(exit_status) => {
@@ -252,7 +245,7 @@ impl AdbMonitor {
                 }
             }
             Err(err) => {
-                error!(target: TAG, "Could not restart adb daemon: {}", err);
+                error!(target: TAG, "Could not restart adb daemon: {err}");
                 false
             }
         }

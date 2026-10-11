@@ -1,12 +1,11 @@
 # gnirehtet-controller
 
-Phase 2 orchestration library for Desktop / shared CLI policy.
+Supervises the external `gnirehtet relay` process for the desktop app.
 
-- Depends on **`gnirehtet-adb` only** (no `gnirehtet-relay` / relaylib).
-- Manages a **session-owned** stock `gnirehtet relay` child process.
-- Default listen port **31416**; no mid-session listen-port hot-swap.
-- Probes bind before claiming ownership (`PORT_IN_USE` on conflict).
-- `Drop` / `clear_owned_relay` kills only a relay this session started.
-- `start_relay` (inherit) / `start_relay_with_stdio` → `RelayStdio` for Desktop LogLine (pump outside mutex).
-
-See `docs/architecture/rust/CONTROLLER_API_DRAFT.md` and `REFACTOR_PLAN.md` Phase 2.
+- `RelaySupervisor::start(port)` refuses to start when the port is already taken
+  (`PORT_IN_USE`), so a relay started by someone else is never adopted or killed.
+- It waits until the relay actually listens before reporting success, and reports
+  the relay's own error output if it exits during startup.
+- `stop()`, and dropping the supervisor, only ever kill the process it started.
+- The relay's stdout/stderr are handed to the caller (`RelayStdio`), which must
+  keep draining them.

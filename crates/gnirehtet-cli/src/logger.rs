@@ -40,9 +40,9 @@ impl Log for SimpleLogger {
                 record.args()
             );
             if record.level() == Level::Error {
-                eprintln!("{}", msg);
+                eprintln!("{msg}");
             } else {
-                println!("{}", msg);
+                println!("{msg}");
             }
         }
     }

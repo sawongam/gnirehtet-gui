@@ -1,9 +1,6 @@
 @import "tailwindcss/index.css";
 
-/*
-  VISUAL_APPROVED_V3 tokens — blue primary SaaS.
-  Boot: light (:root). Flip: add class="dark" on <html>.
-*/
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   color-scheme: light;
@@ -15,74 +12,55 @@
   --border-subtle: #f1f5f9;
 
   --fg: #0f172a;
+  --fg-body: #475569;
   --fg-muted: #64748b;
   --fg-subtle: #94a3b8;
-  --fg-body: #475569;
 
-  /* Primary blue (V3) — not purple-primary */
   --accent: #2563eb;
   --accent-600: #1d4ed8;
   --accent-700: #1e40af;
   --accent-100: #dbeafe;
   --accent-50: #eff6ff;
   --accent-fg: #ffffff;
-  --accent-muted: rgba(37, 99, 235, 0.1);
-
-  /* Accent indigo — sparingly (upload / secondary highlights) */
-  --indigo: #4f46e5;
-  --indigo-muted: rgba(79, 70, 229, 0.1);
 
   --success: #16a34a;
   --success-strong: #15803d;
-  --success-bright: #22c55e;
   --success-soft: #dcfce7;
   --success-bg: #f0fdf4;
 
   --warning: #d97706;
   --warning-strong: #b45309;
-  --warning-bright: #f59e0b;
   --warning-soft: #fef3c7;
   --warning-bg: #fffbeb;
 
   --danger: #dc2626;
   --danger-strong: #b91c1c;
-  --danger-bright: #ef4444;
   --danger-soft: #fee2e2;
   --danger-bg: #fef2f2;
 
-  --info: #2563eb;
-
-  --layer-relay: #2563eb;
-  --layer-tunnel: #4f46e5;
-  --layer-vpn: #16a34a;
-
-  --radius-sm: 6px;
   --radius: 8px;
   --radius-lg: 12px;
-  --radius-xl: 16px;
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.06);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.05);
 
-  --font-ui: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
-
-  --sidebar-width: 240px;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans",
+    sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "JetBrains Mono", Consolas,
+    "Liberation Mono", monospace;
 }
 
-.dark,
-:root.dark,
-html.dark {
+:root.dark {
   color-scheme: dark;
 
   --bg: #0b1220;
   --bg-elevated: #111827;
   --bg-muted: #1f2937;
-  --border: #374151;
+  --border: #334155;
   --border-subtle: #1f2937;
 
-  --fg: #f9fafb;
-  --fg-muted: #9ca3af;
-  --fg-subtle: #6b7280;
+  --fg: #f8fafc;
   --fg-body: #cbd5e1;
+  --fg-muted: #94a3b8;
+  --fg-subtle: #64748b;
 
   --accent: #3b82f6;
   --accent-600: #2563eb;
@@ -90,34 +68,21 @@ html.dark {
   --accent-100: #1e3a8a;
   --accent-50: #172554;
   --accent-fg: #ffffff;
-  --accent-muted: rgba(59, 130, 246, 0.16);
-
-  --indigo: #818cf8;
-  --indigo-muted: rgba(129, 140, 248, 0.16);
 
   --success: #22c55e;
-  --success-strong: #16a34a;
-  --success-bright: #4ade80;
-  --success-soft: rgba(34, 197, 94, 0.15);
+  --success-strong: #4ade80;
+  --success-soft: rgba(34, 197, 94, 0.16);
   --success-bg: rgba(34, 197, 94, 0.08);
 
   --warning: #fbbf24;
-  --warning-strong: #f59e0b;
-  --warning-bright: #fcd34d;
-  --warning-soft: rgba(251, 191, 36, 0.15);
+  --warning-strong: #fcd34d;
+  --warning-soft: rgba(251, 191, 36, 0.16);
   --warning-bg: rgba(251, 191, 36, 0.08);
 
   --danger: #f87171;
-  --danger-strong: #ef4444;
-  --danger-bright: #fca5a5;
-  --danger-soft: rgba(248, 113, 113, 0.15);
+  --danger-strong: #fca5a5;
+  --danger-soft: rgba(248, 113, 113, 0.16);
   --danger-bg: rgba(248, 113, 113, 0.08);
-
-  --info: #60a5fa;
-
-  --layer-relay: #60a5fa;
-  --layer-tunnel: #a78bfa;
-  --layer-vpn: #4ade80;
 
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
@@ -129,44 +94,29 @@ html.dark {
   --color-border: var(--border);
   --color-border-subtle: var(--border-subtle);
   --color-fg: var(--fg);
+  --color-fg-body: var(--fg-body);
   --color-fg-muted: var(--fg-muted);
   --color-fg-subtle: var(--fg-subtle);
-  --color-fg-body: var(--fg-body);
   --color-accent: var(--accent);
   --color-accent-600: var(--accent-600);
   --color-accent-700: var(--accent-700);
   --color-accent-100: var(--accent-100);
   --color-accent-50: var(--accent-50);
   --color-accent-fg: var(--accent-fg);
-  --color-accent-muted: var(--accent-muted);
-  --color-indigo: var(--indigo);
-  --color-indigo-muted: var(--indigo-muted);
   --color-success: var(--success);
   --color-success-strong: var(--success-strong);
-  --color-success-bright: var(--success-bright);
   --color-success-soft: var(--success-soft);
   --color-success-bg: var(--success-bg);
   --color-warning: var(--warning);
   --color-warning-strong: var(--warning-strong);
-  --color-warning-bright: var(--warning-bright);
   --color-warning-soft: var(--warning-soft);
   --color-warning-bg: var(--warning-bg);
   --color-danger: var(--danger);
   --color-danger-strong: var(--danger-strong);
-  --color-danger-bright: var(--danger-bright);
   --color-danger-soft: var(--danger-soft);
   --color-danger-bg: var(--danger-bg);
-  --color-info: var(--info);
-  --color-layer-relay: var(--layer-relay);
-  --color-layer-tunnel: var(--layer-tunnel);
-  --color-layer-vpn: var(--layer-vpn);
   --font-sans: var(--font-ui);
   --font-mono: var(--font-mono);
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius);
-  --radius-lg: var(--radius-lg);
-  --radius-xl: var(--radius-xl);
-  --shadow-card: var(--shadow);
 }
 
 html {
@@ -181,20 +131,13 @@ body {
   margin: 0;
   min-height: 100vh;
   background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-ui);
-}
-
-code,
-.mono,
-.log-pane {
-  font-family: var(--font-mono);
 }
 
 button:focus-visible,
-[role="button"]:focus-visible,
 a:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

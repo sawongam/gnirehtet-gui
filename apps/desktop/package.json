@@ -1,22 +1,23 @@
 {
   "name": "gnirehtet-gui-desktop",
   "version": "0.1.0",
-  "description": "Tauri 2 + Svelte desktop GUI for gnirehtet reverse tethering",
+  "description": "Desktop app for gnirehtet reverse tethering (Tauri 2 + SvelteKit)",
   "type": "module",
   "scripts": {
+    "setup": "node ../../scripts/fetch-upstream.mjs",
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test": "vitest run"
   },
   "license": "Apache-2.0",
   "dependencies": {
     "@lucide/svelte": "^1.47.0",
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2"
+    "@tauri-apps/api": "^2"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.10",
@@ -31,6 +32,11 @@
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^5.0.2"
+  },
+  "private": true,
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
   }
 }

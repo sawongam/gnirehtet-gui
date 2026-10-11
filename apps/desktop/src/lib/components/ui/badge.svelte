@@ -3,11 +3,11 @@
   import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
-  type Tone = "default" | "success" | "warning" | "danger" | "info" | "muted" | "primary";
+  type Tone = "accent" | "success" | "warning" | "danger" | "muted";
 
   let {
     class: className = "",
-    tone = "default" as Tone,
+    tone = "muted",
     children,
     ...rest
   }: HTMLAttributes<HTMLSpanElement> & {
@@ -16,19 +16,17 @@
   } = $props();
 
   const tones: Record<Tone, string> = {
-    default: "bg-bg-muted text-fg border-border",
+    accent: "bg-accent-50 text-accent border-accent/25",
     success: "bg-success-soft text-success-strong border-success/25",
     warning: "bg-warning-soft text-warning-strong border-warning/25",
     danger: "bg-danger-soft text-danger-strong border-danger/25",
-    info: "bg-accent-50 text-accent border-accent/20",
-    muted: "bg-bg-muted text-fg-muted border-border-subtle",
-    primary: "bg-accent-50 text-accent border-accent/25",
+    muted: "bg-bg-muted text-fg-muted border-border",
   };
 </script>
 
 <span
   class={cn(
-    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium leading-none",
+    "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium",
     tones[tone],
     className,
   )}

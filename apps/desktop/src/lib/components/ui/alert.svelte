@@ -3,11 +3,11 @@
   import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
-  type Variant = "default" | "warning" | "destructive" | "info";
+  type Variant = "info" | "success" | "warning" | "danger";
 
   let {
     class: className = "",
-    variant = "default" as Variant,
+    variant = "info",
     children,
     ...rest
   }: HTMLAttributes<HTMLDivElement> & {
@@ -16,20 +16,16 @@
   } = $props();
 
   const variants: Record<Variant, string> = {
-    default: "border-border bg-bg-elevated text-fg",
-    warning: "border-warning/35 bg-warning/10 text-fg",
-    destructive: "border-danger/35 bg-danger/10 text-fg",
-    info: "border-info/35 bg-info/10 text-fg",
+    info: "border-accent/30 bg-accent-50",
+    success: "border-success/30 bg-success-bg",
+    warning: "border-warning/35 bg-warning-bg",
+    danger: "border-danger/35 bg-danger-bg",
   };
 </script>
 
 <div
-  role="alert"
-  class={cn(
-    "rounded-[var(--radius)] border px-4 py-3.5 text-sm shadow-[var(--shadow)]",
-    variants[variant],
-    className,
-  )}
+  role={variant === "danger" ? "alert" : "status"}
+  class={cn("rounded-[var(--radius)] border px-4 py-3 text-sm text-fg", variants[variant], className)}
   {...rest}
 >
   {@render children?.()}

@@ -1,49 +1,94 @@
-# gnirehtet-gui
+# Gnirehtet GUI
 
-Open-source **desktop GUI** successor / front-end for [Genymobile/gnirehtet](https://github.com/Genymobile/gnirehtet) — reverse tethering for Android over `adb`, without root.
+A desktop app for [gnirehtet](https://github.com/Genymobile/gnirehtet): share your
+computer's internet connection with an Android phone over USB, without root and
+without configuring anything on the phone.
 
-This repository is the **product home**. Upstream gnirehtet remains a **pinned dependency** (vendored or submodule), not this repo’s conceptual `origin` for networking logic.
+Plug the phone in, click **Connect**, accept the VPN prompt on the phone, and it
+is online. The app takes care of the parts of gnirehtet that usually happen in a
+terminal: starting the relay, installing the Android client, setting up the adb
+tunnel, and cleaning up when you disconnect or unplug.
 
-## Status
+It uses the unmodified gnirehtet **v2.5.1** relay and Android client; this project
+adds the desktop interface and the process management around them.
 
-**Release candidate packaging** on branch `dev` (local-first; GitHub sync deferred). Baseline branch: `master`. Authored as `sawongam`.
+## Features
 
-- **Not** MVP Done — USB E2E on a real device still required before any Sharing / Done claim.
-- Linux: `.deb` / `.rpm` with embedded Genymobile **v2.5.1** sidecar + APK (AppImage deferred).
-- Windows: NSIS/MSI recipe documented (build on a Windows host).
-- macOS packaging deferred this slice.
+- Detects connected phones and explains what to do when one is unauthorized,
+  offline or not accessible (Linux udev permissions).
+- Installs the gnirehtet client on the phone automatically on first use.
+- Shows the connection state as it happens: starting, waiting for the phone's
+  VPN prompt, connected, interrupted.
+- Restores the USB tunnel automatically when the cable is plugged back in.
+- Stops the VPN on the phone and the relay on the computer when you disconnect
+  or quit.
+- Optional DNS servers, routes and relay port; light and dark themes; a log view
+  for troubleshooting.
 
-### First-run (Linux .deb)
+## Install
 
-See **[`docs/architecture/desktop/RC_PACKAGING.md`](docs/architecture/desktop/RC_PACKAGING.md)** for artifacts, pins, and install steps. Short path:
+Download the installer for your system from the
+[Releases](https://github.com/sawongam/gnirehtet-gui/releases) page:
 
-1. Install the RC `.deb` from the release/lab bundle path documented there.
-2. Ensure **`adb` is on `PATH`** (platform-tools). Do not rely on a bundled adb for MVP.
-3. Launch the app, authorize the device, then Install → Run. Sharing is only claimed when Relay + Tunnel + Device VPN are healthy.
+| System | File |
+|--------|------|
+| Debian, Ubuntu | `.deb` |
+| Fedora, openSUSE | `.rpm` |
+| Other Linux | `.AppImage` |
+| Windows | `.msi` or `-setup.exe` |
+| macOS | `.dmg` |
 
-Override paths only if needed: `ADB`, `GNIREHTET_BIN`, `GNIREHTET_APK`.
+The app also needs **adb** (Android platform-tools). See the
+[installation guide](docs/INSTALL.md) for step-by-step instructions for each
+system and for preparing the phone.
 
-### Dev
+## Usage
+
+1. Enable **USB debugging** on the phone (Settings → About phone → tap *Build
+   number* seven times, then Settings → Developer options → USB debugging).
+2. Connect the phone with a USB cable and accept the *Allow USB debugging?*
+   prompt on the phone.
+3. Open Gnirehtet, select the phone and click **Connect**.
+4. Accept the *Connection request* (VPN) prompt on the phone.
+
+The phone now uses the computer's connection. Click **Disconnect** to stop.
+If something goes wrong, see [Troubleshooting](docs/TROUBLESHOOTING.md).
+
+## Limitations
+
+These come from gnirehtet itself:
+
+- IPv4 only: IPv6 traffic is not relayed.
+- TCP and UDP only (no ICMP, so `ping` does not work on the phone).
+- One phone at a time in this app.
+
+## Building from source
 
 ```bash
-cd apps/desktop && npm install && npm run tauri dev
-# or: cargo check -p gnirehtet-desktop
+git clone https://github.com/sawongam/gnirehtet-gui.git
+cd gnirehtet-gui/apps/desktop
+npm install
+npm run setup        # fetches the pinned gnirehtet relay and APK (checksum-verified)
+npm run tauri dev    # run in development
+npm run tauri build  # build installers into target/release/bundle/
 ```
 
-See `apps/desktop/README.md`, `apps/desktop/docs/SIDECAR.md`, `resources/README.md`.
+Prerequisites (Rust 1.88, Node.js 20.19+, system libraries) and the project layout
+are described in the [development guide](docs/DEVELOPMENT.md).
 
-## Docs
+## Documentation
 
-| Path | Owner |
-|------|--------|
-| [`docs/architecture/`](docs/architecture/) | Lead architecture, MVP, roadmap, migration |
-| [`docs/architecture/desktop/`](docs/architecture/desktop/) | Desktop shell, RC packaging, Phase 0–3 acceptance |
-| [`docs/architecture/rust/`](docs/architecture/rust/) | Rust crate structure, concurrency, refactor plan |
-
-## Upstream pin
-
-Planning + Linux/Windows RC sidecars are pinned to Genymobile/gnirehtet **v2.5.1** / **`1eb2e58`** unless an ADR updates the pin. Do not silently mix older macOS prebuilt pins into Linux/Win packages.
+- [Installation](docs/INSTALL.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Development](docs/DEVELOPMENT.md)
+- [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
 
 ## License
 
-Apache License 2.0. Reused gnirehtet components remain under their Apache-2.0 terms with Genymobile copyright retained in those files / `NOTICE`.
+Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+gnirehtet is developed by [Genymobile](https://github.com/Genymobile/gnirehtet)
+and is also licensed under Apache 2.0. This project is not affiliated with
+Genymobile.

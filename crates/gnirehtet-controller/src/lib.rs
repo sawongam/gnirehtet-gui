@@ -1,21 +1,13 @@
-//! gnirehtet-controller — Phase 2 session orchestration (sidecar-first).
+//! Supervision of the stock `gnirehtet relay` process used by the desktop app.
 //!
-//! Depends on `gnirehtet-adb` only. Does **not** link `gnirehtet-relay` / relaylib.
-//! Desktop and CLI can share this for relay child lifecycle + ADB verb mirrors.
+//! The relay runs as a child process rather than in-process so that a relay
+//! crash cannot take the GUI down, and so that the shipped relay is the
+//! unmodified upstream binary.
 
 pub mod error;
 pub mod relay;
-pub mod session;
 
 pub use crate::error::ControllerError;
-pub use crate::relay::{
-    probe_relay_port, spawn_relay, spawn_relay_with_stdio, RelayProcess, RelayStdio,
-    DEFAULT_RELAY_PORT,
-};
-pub use crate::session::{sidecar_search_candidates, ControllerConfig, RunOptions, SessionController};
-pub use gnirehtet_adb::{apk_search_candidates, resolve_apk_path};
-
-// Re-export common adb types so Desktop can depend primarily on controller later.
-pub use gnirehtet_adb::{
-    AdbClient, AdbConfig, AdbDevice, AdbStatus, CommandExecutionError, VpnOptions,
-};
+pub use crate::relay::{probe_relay_port, RelayStdio, RelaySupervisor};
+pub use gnirehtet_adb;
+pub use gnirehtet_adb::DEFAULT_PORT as DEFAULT_RELAY_PORT;

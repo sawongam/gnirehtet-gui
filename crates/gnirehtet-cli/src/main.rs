@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Phase 1: thin CLI dispatching to gnirehtet-adb::AdbClient and relaylib::relay.
+ * Modified for gnirehtet-gui: uses the gnirehtet-adb crate for ADB commands.
  */
 
 extern crate chrono;
@@ -304,7 +304,7 @@ fn cmd_run(
         info!(target: TAG, "Interrupted");
         let serial = ctrlc_serial.as_ref().map(String::as_ref);
         if let Err(err) = AdbClient::from_env().stop(serial) {
-            error!(target: TAG, "Cannot stop client: {}", err);
+            error!(target: TAG, "Cannot stop client: {err}");
         }
         exit(0);
     })
@@ -325,7 +325,7 @@ fn cmd_autorun(
             let dns_servers = autostart_dns_servers.as_ref().map(String::as_ref);
             let routes = autostart_routes.as_ref().map(String::as_ref);
             if let Err(err) = cmd_autostart(dns_servers, routes, port) {
-                error!(target: TAG, "Cannot auto start clients: {}", err);
+                error!(target: TAG, "Cannot auto start clients: {err}");
             }
         });
     }
@@ -350,8 +350,7 @@ fn cmd_autostart(
 }
 
 fn cmd_relay(port: u16) -> Result<(), CommandExecutionError> {
-    info!(target: TAG, "Starting relay server on port {}...", port);
-    // Phase 1 CLI parity: in-process relaylib::relay. GUI will spawn stock binary later.
+    info!(target: TAG, "Starting relay server on port {port}...");
     relaylib::relay(port)?;
     Ok(())
 }
@@ -368,7 +367,7 @@ fn print_usage() {
         msg.push('\n');
         append_command_usage(&mut msg, command);
     }
-    eprint!("{}", msg);
+    eprint!("{msg}");
 }
 
 fn append_command_usage(msg: &mut String, command: &dyn Command) {
@@ -398,7 +397,7 @@ fn append_command_usage(msg: &mut String, command: &dyn Command) {
 fn print_command_usage(command: &dyn Command) {
     let mut msg = String::new();
     append_command_usage(&mut msg, command);
-    eprint!("{}", msg);
+    eprint!("{msg}");
 }
 
 fn main() {
@@ -415,12 +414,12 @@ fn main() {
                 match arguments {
                     Ok(arguments) => {
                         if let Err(err) = command.execute(&arguments) {
-                            error!(target: TAG, "Execution error: {}", err);
+                            error!(target: TAG, "Execution error: {err}");
                             exit(3);
                         }
                     }
                     Err(err) => {
-                        error!(target: TAG, "{}", err);
+                        error!(target: TAG, "{err}");
                         print_command_usage(command);
                         exit(2);
                     }
@@ -434,7 +433,7 @@ fn main() {
                     );
                     print_command_usage(&RunCommand);
                 } else {
-                    error!(target: TAG, "Unknown command: {}", command_name);
+                    error!(target: TAG, "Unknown command: {command_name}");
                     print_usage();
                 }
                 exit(1);

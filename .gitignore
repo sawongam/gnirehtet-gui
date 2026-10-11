@@ -13,8 +13,9 @@ apps/desktop/src-tauri/target/
 .env
 .env.*
 
-# Upstream binaries (drop in locally / CI)
+# Bundled upstream files, created by scripts/fetch-upstream.mjs
 resources/gnirehtet.apk
 apps/desktop/src-tauri/binaries/gnirehtet-*
 !apps/desktop/src-tauri/binaries/README.md
 !apps/desktop/src-tauri/binaries/.gitkeep
+.vite/

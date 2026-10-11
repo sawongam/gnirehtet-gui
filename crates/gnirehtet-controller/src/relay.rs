@@ -1,272 +1,408 @@
-//! Session-owned stock `gnirehtet relay` child process.
+//! Supervision of the external `gnirehtet relay` process.
 
 use crate::error::ControllerError;
+use gnirehtet_adb::background_command;
 use log::*;
+use std::io::{self, Read};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStderr, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStderr, ChildStdout, ExitStatus, Stdio};
+use std::sync::mpsc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-const TAG: &str = "RelayProcess";
+const TAG: &str = "RelaySupervisor";
 
-/// Upstream / CLI default relay listen port.
-pub const DEFAULT_RELAY_PORT: u16 = 31416;
+/// How long the relay may take to bind its port after being spawned.
+const START_TIMEOUT: Duration = Duration::from_secs(5);
+const START_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
-/// Piped stdout/stderr from a relay child started with `start_relay_with_stdio`.
-///
-/// **Concurrency:** take these under the `SessionController` lock, then read on
-/// Desktop threads / channels **outside** the mutex. Desktop owns the single
-/// `LogLine` pump — the controller does not spawn log-reader threads.
+/// Output pipes of a started relay. The caller must keep draining both,
+/// otherwise the relay blocks once a pipe buffer fills up.
 #[derive(Debug)]
 pub struct RelayStdio {
     pub stdout: ChildStdout,
     pub stderr: ChildStderr,
 }
 
-/// Handle for a relay child this session started.
-#[derive(Debug)]
-pub struct RelayProcess {
-    child: Child,
-    port: u16,
-    path: PathBuf,
-}
-
-impl RelayProcess {
-    pub fn port(&self) -> u16 {
-        self.port
-    }
-
-    pub fn pid(&self) -> u32 {
-        self.child.id()
-    }
-
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
-    pub fn child_mut(&mut self) -> &mut Child {
-        &mut self.child
-    }
-
-    /// Non-blocking poll: `Ok(None)` still running; `Ok(Some(status))` exited.
-    pub fn try_wait(&mut self) -> std::io::Result<Option<std::process::ExitStatus>> {
-        self.child.try_wait()
-    }
-
-    /// Kill and wait (session teardown / quit helper).
-    pub fn kill_and_wait(mut self) -> std::io::Result<()> {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-        Ok(())
-    }
-}
-
-/// Probe whether `127.0.0.1:port` can be bound (upstream relay listen address).
-///
-/// On `AddrInUse`, returns `ControllerError::PortInUse` so callers must **not**
-/// claim session ownership (PHASE0_ACCEPTANCE P0-P2).
+/// Check whether `127.0.0.1:port`, the relay listen address, is free.
 pub fn probe_relay_port(port: u16) -> Result<(), ControllerError> {
     match TcpListener::bind(("127.0.0.1", port)) {
-        Ok(listener) => {
-            drop(listener);
-            Ok(())
-        }
-        Err(err) if err.kind() == std::io::ErrorKind::AddrInUse => {
+        Ok(_) => Ok(()),
+        Err(err) if err.kind() == io::ErrorKind::AddrInUse => {
             Err(ControllerError::PortInUse { port })
         }
         Err(err) => Err(ControllerError::Io(err)),
     }
 }
 
-/// Spawn `gnirehtet relay -p <port>` with **inherited** stdio (Desktop spawn/stop-first path).
-///
-/// Does not claim ownership for the caller — the returned `RelayProcess` is the
-/// ownership token. If the child exits immediately, returns `RelayStartFailed`
-/// and does not leave a live child.
-pub fn spawn_relay(gnirehtet_path: &Path, port: u16) -> Result<RelayProcess, ControllerError> {
-    let (relay, stdio) = spawn_relay_inner(gnirehtet_path, port, false)?;
-    debug_assert!(stdio.is_none());
-    Ok(relay)
+struct RunningRelay {
+    child: Child,
+    port: u16,
 }
 
-/// Spawn `gnirehtet relay -p <port>` with **piped** stdout/stderr for LogLine streaming.
+/// Owns at most one relay process and never touches relays it did not start.
 ///
-/// Same port probe + immediate-exit checks as [`spawn_relay`]. Callers must
-/// drain the returned pipes (or the child may block on a full pipe buffer).
-pub fn spawn_relay_with_stdio(
-    gnirehtet_path: &Path,
-    port: u16,
-) -> Result<(RelayProcess, RelayStdio), ControllerError> {
-    let (relay, stdio) = spawn_relay_inner(gnirehtet_path, port, true)?;
-    Ok((
-        relay,
-        stdio.expect("piped spawn must return RelayStdio"),
-    ))
+/// The relay is killed when the supervisor is dropped.
+pub struct RelaySupervisor {
+    binary: PathBuf,
+    relay: Option<RunningRelay>,
 }
 
-fn spawn_relay_inner(
-    gnirehtet_path: &Path,
-    port: u16,
-    pipe_stdio: bool,
-) -> Result<(RelayProcess, Option<RelayStdio>), ControllerError> {
-    probe_relay_port(port)?;
-
-    if gnirehtet_path.is_absolute() && !gnirehtet_path.is_file() {
-        return Err(ControllerError::GnirehtetNotFound {
-            path: gnirehtet_path.display().to_string(),
-        });
+impl RelaySupervisor {
+    pub fn new(binary: impl Into<PathBuf>) -> Self {
+        Self {
+            binary: binary.into(),
+            relay: None,
+        }
     }
 
-    let path_str = gnirehtet_path.to_string_lossy().to_string();
-    info!(
-        target: TAG,
-        "Spawning relay: {:?} relay -p {} (stdio={})",
-        gnirehtet_path,
-        port,
-        if pipe_stdio { "piped" } else { "inherit" }
-    );
+    /// The relay executable (absolute path, or a name resolved via `PATH`).
+    pub fn binary(&self) -> &Path {
+        &self.binary
+    }
 
-    let stdout_cfg = if pipe_stdio {
-        Stdio::piped()
-    } else {
-        Stdio::inherit()
-    };
-    let stderr_cfg = if pipe_stdio {
-        Stdio::piped()
-    } else {
-        Stdio::inherit()
-    };
+    pub fn is_running(&self) -> bool {
+        self.relay.is_some()
+    }
 
-    let mut child = Command::new(gnirehtet_path)
-        .args(["relay", "-p", &port.to_string()])
-        .stdout(stdout_cfg)
-        .stderr(stderr_cfg)
-        .spawn()
-        .map_err(|source| ControllerError::RelaySpawn {
-            path: path_str.clone(),
-            source,
-        })?;
+    pub fn pid(&self) -> Option<u32> {
+        self.relay.as_ref().map(|r| r.child.id())
+    }
 
-    let stdio = if pipe_stdio {
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| ControllerError::RelayStartFailed {
-                port,
-                detail: "stdout pipe missing after piped spawn".into(),
-            })?;
-        let stderr = child
-            .stderr
-            .take()
-            .ok_or_else(|| ControllerError::RelayStartFailed {
-                port,
-                detail: "stderr pipe missing after piped spawn".into(),
-            })?;
-        Some(RelayStdio { stdout, stderr })
-    } else {
-        None
-    };
+    pub fn port(&self) -> Option<u16> {
+        self.relay.as_ref().map(|r| r.port)
+    }
 
-    // Brief settle: if bind raced or binary crashed, do not claim ownership.
-    thread::sleep(Duration::from_millis(150));
-    match child.try_wait() {
-        Ok(Some(status)) => {
-            return Err(ControllerError::RelayStartFailed {
-                port,
-                detail: format!("exited immediately: {}", status),
+    /// Spawn `gnirehtet relay -p <port>` and wait until it listens.
+    ///
+    /// Fails without spawning anything if the port is already taken, so a
+    /// foreign relay is never mistaken for ours.
+    pub fn start(&mut self, port: u16) -> Result<RelayStdio, ControllerError> {
+        self.poll()?;
+        if let Some(relay) = &self.relay {
+            return Err(ControllerError::RelayAlreadyRunning { port: relay.port });
+        }
+        probe_relay_port(port)?;
+
+        let has_dir = self
+            .binary
+            .parent()
+            .is_some_and(|dir| !dir.as_os_str().is_empty());
+        if has_dir && !self.binary.is_file() {
+            return Err(ControllerError::RelayNotFound {
+                path: self.binary.display().to_string(),
             });
         }
-        Ok(None) => {}
-        Err(err) => {
+
+        info!(target: TAG, "Starting {} relay -p {}", self.binary.display(), port);
+        let mut child = background_command(&self.binary)
+            .args(["relay", "-p", &port.to_string()])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|source| ControllerError::RelaySpawn {
+                path: self.binary.display().to_string(),
+                source,
+            })?;
+
+        if let Err(err) = wait_until_listening(&mut child, port) {
             let _ = child.kill();
             let _ = child.wait();
-            return Err(ControllerError::Io(err));
+            return Err(err);
         }
+
+        let (stdout, stderr) = match (child.stdout.take(), child.stderr.take()) {
+            (Some(stdout), Some(stderr)) => (stdout, stderr),
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(ControllerError::RelayStartFailed {
+                    port,
+                    detail: "output pipes unavailable".into(),
+                });
+            }
+        };
+
+        info!(target: TAG, "Relay running (pid {}, port {})", child.id(), port);
+        self.relay = Some(RunningRelay { child, port });
+        Ok(RelayStdio { stdout, stderr })
     }
 
-    Ok((
-        RelayProcess {
-            child,
-            port,
-            path: gnirehtet_path.to_path_buf(),
-        },
-        stdio,
-    ))
+    /// Kill the relay if one is running. Returns whether one was running.
+    pub fn stop(&mut self) -> bool {
+        let Some(mut relay) = self.relay.take() else {
+            return false;
+        };
+        info!(target: TAG, "Stopping relay (pid {})", relay.child.id());
+        let _ = relay.child.kill();
+        let _ = relay.child.wait();
+        true
+    }
+
+    /// Non-blocking check: returns the exit status if the relay has exited
+    /// since the last call, and forgets it.
+    pub fn poll(&mut self) -> io::Result<Option<ExitStatus>> {
+        let Some(relay) = self.relay.as_mut() else {
+            return Ok(None);
+        };
+        match relay.child.try_wait()? {
+            None => Ok(None),
+            Some(status) => {
+                warn!(target: TAG, "Relay exited unexpectedly ({status})");
+                self.relay = None;
+                Ok(Some(status))
+            }
+        }
+    }
 }
 
-#[cfg(test)]
+impl Drop for RelaySupervisor {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
+fn wait_until_listening(child: &mut Child, port: u16) -> Result<(), ControllerError> {
+    let deadline = Instant::now() + START_TIMEOUT;
+    loop {
+        if let Some(status) = child.try_wait()? {
+            let output = read_exited_output(child);
+            let detail = output
+                .lines()
+                .map(str::trim)
+                .rfind(|line| !line.is_empty())
+                .map(|line| format!("{line} ({status})"))
+                .unwrap_or_else(|| format!("exited immediately ({status})"));
+            return Err(ControllerError::RelayStartFailed { port, detail });
+        }
+        match probe_relay_port(port) {
+            Err(ControllerError::PortInUse { .. }) => return Ok(()),
+            Err(err) => return Err(err),
+            Ok(()) => {}
+        }
+        if Instant::now() >= deadline {
+            return Err(ControllerError::RelayStartFailed {
+                port,
+                detail: format!("not listening after {}s", START_TIMEOUT.as_secs()),
+            });
+        }
+        thread::sleep(START_POLL_INTERVAL);
+    }
+}
+
+/// Read what an exited relay printed, without blocking if a pipe stays open.
+fn read_exited_output(child: &mut Child) -> String {
+    let (tx, rx) = mpsc::channel();
+    if let Some(mut stdout) = child.stdout.take() {
+        let tx = tx.clone();
+        thread::spawn(move || {
+            let mut text = String::new();
+            let _ = stdout.read_to_string(&mut text);
+            let _ = tx.send(text);
+        });
+    }
+    if let Some(mut stderr) = child.stderr.take() {
+        let tx = tx.clone();
+        thread::spawn(move || {
+            let mut text = String::new();
+            let _ = stderr.read_to_string(&mut text);
+            let _ = tx.send(text);
+        });
+    }
+    drop(tx);
+    let deadline = Instant::now() + Duration::from_millis(300);
+    let mut output = String::new();
+    while let Ok(text) = rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+        output.push_str(&text);
+    }
+    output
+}
+
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use std::io::{BufRead, BufReader, Write};
-    use std::net::TcpListener;
     use std::os::unix::fs::PermissionsExt;
 
-    #[test]
-    fn probe_detects_addr_in_use() {
-        let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind ephemeral");
-        let port = listener.local_addr().unwrap().port();
-        let err = probe_relay_port(port).expect_err("port should be busy");
-        match err {
-            ControllerError::PortInUse { port: p } => assert_eq!(p, port),
-            other => panic!("expected PortInUse, got {}", other),
-        }
-        assert_eq!(err.ux_code(), Some("PORT_IN_USE"));
-        drop(listener);
-        probe_relay_port(port).expect("port free after drop");
+    /// Tests bind ephemeral ports and exec freshly written scripts; running
+    /// them concurrently races on both (port reuse, ETXTBSY), so serialize.
+    static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn serial() -> std::sync::MutexGuard<'static, ()> {
+        SERIAL
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
-    /// Stub binary that accepts `relay -p <port>` like stock gnirehtet, writes
-    /// lines, then sleeps so ownership can be claimed.
-    #[test]
-    fn spawn_with_stdio_exposes_readable_pipes() {
+    /// A fake relay: a shell script (the port is bound by the test itself,
+    /// standing in for the real relay's listener).
+    fn fake_relay(name: &str, script: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "gnirehtet-controller-stdio-test-{}",
+            "gnirehtet-controller-{}-{}",
+            name,
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let stub = dir.join("fake-gnirehtet");
-        {
-            let mut f = std::fs::File::create(&stub).unwrap();
-            writeln!(
-                f,
-                "#!/bin/sh\n# args: relay -p <port>\necho 'relay-stdout-line'\necho 'relay-stderr-line' >&2\nexec sleep 30\n"
-            )
-            .unwrap();
-        }
-        let mut perms = std::fs::metadata(&stub).unwrap().permissions();
-        perms.set_mode(0o755);
-        std::fs::set_permissions(&stub, perms).unwrap();
+        let path = dir.join("gnirehtet");
+        let mut file = std::fs::File::create(&path).unwrap();
+        writeln!(file, "#!/bin/sh\n{script}").unwrap();
+        drop(file);
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        path
+    }
 
-        // Free ephemeral port for the pre-spawn probe (stub does not bind).
-        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-        let port = listener.local_addr().unwrap().port();
-        drop(listener);
+    fn free_port() -> u16 {
+        TcpListener::bind(("127.0.0.1", 0))
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port()
+    }
 
-        let (relay, stdio) = spawn_relay_with_stdio(&stub, port).expect("stub spawn");
-        assert_eq!(relay.port(), port);
-        assert!(relay.pid() > 0);
-
-        let mut out = BufReader::new(stdio.stdout);
-        let mut err = BufReader::new(stdio.stderr);
-        let mut line = String::new();
-        out.read_line(&mut line).unwrap();
-        assert_eq!(line.trim(), "relay-stdout-line");
-        line.clear();
-        err.read_line(&mut line).unwrap();
-        assert_eq!(line.trim(), "relay-stderr-line");
-
-        relay.kill_and_wait().unwrap();
-        let _ = std::fs::remove_dir_all(&dir);
+    /// Bind `port` shortly after the relay is spawned, as the real relay would.
+    fn listen_soon(port: u16, hold: Duration) -> thread::JoinHandle<()> {
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(100));
+            let listener = TcpListener::bind(("127.0.0.1", port)).unwrap();
+            thread::sleep(hold);
+            drop(listener);
+        })
     }
 
     #[test]
-    fn spawn_with_stdio_port_in_use_before_ownership() {
+    fn probe_detects_port_in_use() {
+        let _serial = serial();
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
-        let err = spawn_relay_with_stdio(Path::new("gnirehtet"), port).expect_err("busy");
-        assert!(matches!(err, ControllerError::PortInUse { .. }));
+        let err = probe_relay_port(port).expect_err("port busy");
+        assert!(matches!(err, ControllerError::PortInUse { port: p } if p == port));
+        assert_eq!(err.code(), "PORT_IN_USE");
         drop(listener);
+        probe_relay_port(port).expect("port free again");
+    }
+
+    #[test]
+    fn start_refuses_busy_port_without_spawning() {
+        let _serial = serial();
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let mut supervisor = RelaySupervisor::new("/definitely/not/spawned");
+        let err = supervisor.start(port).expect_err("busy");
+        assert!(matches!(err, ControllerError::PortInUse { .. }));
+        assert!(!supervisor.is_running());
+    }
+
+    #[test]
+    fn missing_binary_is_reported() {
+        let _serial = serial();
+        let mut supervisor = RelaySupervisor::new("/no/such/dir/gnirehtet");
+        let err = supervisor.start(free_port()).expect_err("missing");
+        assert_eq!(err.code(), "RELAY_NOT_FOUND");
+    }
+
+    #[test]
+    fn start_waits_for_listener_and_exposes_output() {
+        let _serial = serial();
+        let binary = fake_relay(
+            "start",
+            "echo 'relay-out'\necho 'relay-err' >&2\nexec sleep 30",
+        );
+        let port = free_port();
+        let listener = listen_soon(port, Duration::from_secs(2));
+
+        let mut supervisor = RelaySupervisor::new(&binary);
+        let stdio = supervisor.start(port).expect("start");
+        assert!(supervisor.is_running());
+        assert_eq!(supervisor.port(), Some(port));
+        assert!(supervisor.pid().is_some());
+
+        let mut line = String::new();
+        BufReader::new(stdio.stdout).read_line(&mut line).unwrap();
+        assert_eq!(line.trim(), "relay-out");
+        line.clear();
+        BufReader::new(stdio.stderr).read_line(&mut line).unwrap();
+        assert_eq!(line.trim(), "relay-err");
+
+        let err = supervisor.start(port).expect_err("already running");
+        assert_eq!(err.code(), "RELAY_ALREADY_RUNNING");
+
+        assert!(supervisor.stop());
+        assert!(!supervisor.is_running());
+        assert!(!supervisor.stop());
+        listener.join().unwrap();
+    }
+
+    #[test]
+    fn immediate_exit_reports_relay_output() {
+        let _serial = serial();
+        let binary = fake_relay("exit", "echo 'Address already in use' >&2\nexit 3");
+        let mut supervisor = RelaySupervisor::new(&binary);
+        let err = supervisor.start(free_port()).expect_err("exits");
+        assert_eq!(err.code(), "RELAY_START_FAILED");
+        assert!(err.to_string().contains("Address already in use"), "{err}");
+        assert!(!supervisor.is_running());
+    }
+
+    #[test]
+    fn poll_reports_crash_once() {
+        let _serial = serial();
+        let binary = fake_relay("crash", "sleep 0.5\nexit 42");
+        let port = free_port();
+        let listener = listen_soon(port, Duration::from_millis(200));
+
+        let mut supervisor = RelaySupervisor::new(&binary);
+        let _stdio = supervisor.start(port).expect("start");
+        thread::sleep(Duration::from_millis(900));
+        let status = supervisor.poll().unwrap().expect("exited");
+        assert_eq!(status.code(), Some(42));
+        assert!(!supervisor.is_running());
+        assert!(supervisor.poll().unwrap().is_none());
+        listener.join().unwrap();
+    }
+
+    #[test]
+    fn drop_kills_relay() {
+        let _serial = serial();
+        let binary = fake_relay("drop", "exec sleep 30");
+        let port = free_port();
+        let listener = listen_soon(port, Duration::from_millis(300));
+
+        let mut supervisor = RelaySupervisor::new(&binary);
+        let _stdio = supervisor.start(port).expect("start");
+        let pid = supervisor.pid().unwrap();
+        drop(supervisor);
+        let alive = std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .stderr(Stdio::null())
+            .status()
+            .unwrap()
+            .success();
+        assert!(!alive, "relay {pid} survived drop");
+        listener.join().unwrap();
+    }
+
+    /// End-to-end check against a real relay binary, when one is provided.
+    #[test]
+    fn real_relay_starts_and_stops() {
+        let _serial = serial();
+        let Some(binary) = std::env::var_os("GNIREHTET_TEST_RELAY") else {
+            return;
+        };
+        let port = free_port();
+        let mut supervisor = RelaySupervisor::new(PathBuf::from(binary));
+        let stdio = supervisor.start(port).expect("real relay starts");
+        let started = BufReader::new(stdio.stdout)
+            .lines()
+            .take(5)
+            .map_while(Result::ok)
+            .any(|line| line.contains("Relay server started"));
+        assert!(started);
+        let mut other = RelaySupervisor::new(supervisor.binary().to_path_buf());
+        assert_eq!(other.start(port).expect_err("busy").code(), "PORT_IN_USE");
+        assert!(supervisor.stop());
+        probe_relay_port(port).expect("port released");
     }
 }

@@ -5,19 +5,23 @@
   let {
     class: className = "",
     value = $bindable(""),
+    invalid = false,
     ...rest
   }: HTMLInputAttributes & {
     value?: string;
+    invalid?: boolean;
   } = $props();
 </script>
 
 <input
   class={cn(
-    "h-10 w-full rounded-full border border-border bg-bg-elevated px-4 text-sm text-fg placeholder:text-fg-subtle",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:border-accent",
+    "h-9 w-full rounded-[var(--radius)] border bg-bg-elevated px-3 text-sm text-fg placeholder:text-fg-subtle",
+    "focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/25",
     "disabled:cursor-not-allowed disabled:opacity-50",
+    invalid ? "border-danger" : "border-border",
     className,
   )}
+  aria-invalid={invalid || undefined}
   bind:value
   {...rest}
 />

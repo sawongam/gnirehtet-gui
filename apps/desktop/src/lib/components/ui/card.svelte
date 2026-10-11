@@ -5,24 +5,14 @@
 
   let {
     class: className = "",
-    selected = false,
     children,
     ...rest
-  }: HTMLAttributes<HTMLDivElement> & {
-    selected?: boolean;
-    children?: Snippet;
-  } = $props();
+  }: HTMLAttributes<HTMLElement> & { children?: Snippet } = $props();
 </script>
 
-<div
-  class={cn(
-    "rounded-[var(--radius-lg)] border bg-bg-elevated shadow-[var(--shadow)] transition-colors",
-    selected
-      ? "border-accent bg-accent-50 ring-1 ring-accent/20"
-      : "border-border",
-    className,
-  )}
+<section
+  class={cn("rounded-[var(--radius-lg)] border border-border bg-bg-elevated shadow-[var(--shadow)]", className)}
   {...rest}
 >
   {@render children?.()}
-</div>
+</section>

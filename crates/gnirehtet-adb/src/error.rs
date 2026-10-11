@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Adapted for gnirehtet-gui: expose accessors for Desktop ERROR_UX mapping.
+ * Modified for gnirehtet-gui: captured command output, timeouts, argument
+ * validation and machine-readable error codes.
  */
 
 use std::error;
@@ -22,20 +23,42 @@ use std::io;
 #[cfg(unix)]
 use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub enum CommandExecutionError {
+    /// The command could not be spawned (binary missing, not executable, ...).
     ProcessIo(ProcessIoError),
+    /// The command ran and exited unsuccessfully.
     ProcessStatus(ProcessStatusError),
+    /// The command exited successfully but its output reports a failure
+    /// (`am start` exits 0 even when the activity cannot be started).
+    Rejected {
+        cmd: Cmd,
+        output: String,
+    },
+    /// The command did not finish in time and was killed.
+    Timeout {
+        cmd: Cmd,
+        after: Duration,
+    },
+    /// The client APK to install does not exist.
+    ApkMissing {
+        path: String,
+    },
+    /// A user-supplied value was refused before reaching the device shell.
+    InvalidArgument {
+        name: &'static str,
+        reason: String,
+    },
     Io(io::Error),
-    /// Local helper APK path missing or not a file (ERROR_UX `APK_MISSING`).
-    ApkMissing { path: String },
 }
 
 #[derive(Debug)]
 pub struct ProcessStatusError {
     cmd: Cmd,
     termination: Termination,
+    output: String,
 }
 
 #[derive(Debug)]
@@ -44,34 +67,39 @@ pub struct ProcessIoError {
     error: io::Error,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Cmd {
     command: String,
     args: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Termination {
     Value(i32),
-    #[cfg(unix)]
     Signal(i32),
+    Unknown,
 }
 
 impl Termination {
     fn from(status: ExitStatus) -> Self {
-        match status.code() {
-            Some(code) => Termination::Value(code),
-            #[cfg(unix)]
-            None => Termination::Signal(status.signal().unwrap()),
-            #[cfg(not(unix))]
-            None => panic!("Unexpected signal termination on non-unix system"),
+        if let Some(code) = status.code() {
+            return Termination::Value(code);
         }
+        #[cfg(unix)]
+        if let Some(signal) = status.signal() {
+            return Termination::Signal(signal);
+        }
+        Termination::Unknown
     }
 }
 
 impl fmt::Display for Cmd {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {:?}", self.command, self.args)
+        write!(f, "{}", self.command)?;
+        for arg in &self.args {
+            write!(f, " {arg}")?;
+        }
+        Ok(())
     }
 }
 
@@ -83,7 +111,7 @@ impl Cmd {
     {
         Self {
             command: command.into(),
-            args: args.into_iter().map(Into::into).collect::<Vec<_>>(),
+            args: args.into_iter().map(Into::into).collect(),
         }
     }
 
@@ -97,10 +125,11 @@ impl Cmd {
 }
 
 impl ProcessStatusError {
-    pub fn new(cmd: Cmd, status: ExitStatus) -> Self {
+    pub fn new(cmd: Cmd, status: ExitStatus, output: impl Into<String>) -> Self {
         Self {
             cmd,
             termination: Termination::from(status),
+            output: output.into(),
         }
     }
 
@@ -108,22 +137,27 @@ impl ProcessStatusError {
         &self.cmd
     }
 
-    pub fn termination(&self) -> &Termination {
-        &self.termination
+    pub fn termination(&self) -> Termination {
+        self.termination
+    }
+
+    /// Combined stdout/stderr of the failed command, trimmed.
+    pub fn output(&self) -> &str {
+        &self.output
     }
 }
 
 impl fmt::Display for ProcessStatusError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.termination {
-            Termination::Value(code) => {
-                write!(f, "Command {} returned with value {}", self.cmd, code)
-            }
-            #[cfg(unix)]
-            Termination::Signal(sig) => {
-                write!(f, "Command {} terminated by signal {}", self.cmd, sig)
-            }
+            Termination::Value(code) => write!(f, "`{}` exited with code {}", self.cmd, code)?,
+            Termination::Signal(sig) => write!(f, "`{}` was killed by signal {}", self.cmd, sig)?,
+            Termination::Unknown => write!(f, "`{}` failed", self.cmd)?,
         }
+        if let Some(line) = last_meaningful_line(&self.output) {
+            write!(f, ": {line}")?;
+        }
+        Ok(())
     }
 }
 
@@ -142,8 +176,7 @@ impl ProcessIoError {
         &self.error
     }
 
-    /// `true` when the adb binary could not be spawned (typical `ADB_MISSING` /
-    /// `ADB_PATH_INVALID` mapping at the UI boundary).
+    /// `true` when the program could not be found.
     pub fn is_not_found(&self) -> bool {
         self.error.kind() == io::ErrorKind::NotFound
     }
@@ -151,7 +184,7 @@ impl ProcessIoError {
 
 impl fmt::Display for ProcessIoError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Command {} failed: {}", self.cmd, self.error)
+        write!(f, "Cannot run `{}`: {}", self.cmd.command, self.error)
     }
 }
 
@@ -162,59 +195,79 @@ impl error::Error for ProcessIoError {
 }
 
 impl CommandExecutionError {
-    /// Best-effort ERROR_UX hint for Desktop mapping (not a full taxonomy).
+    /// Stable, machine-readable error code for UI mapping.
     ///
-    /// - `ProcessIo` + `NotFound` → `ADB_MISSING`
-    /// - other `ProcessIo` spawn failures → `ADB_PATH_INVALID`
-    /// - non-zero exit / signal → `None` (caller uses stage context)
-    /// - bare `Io` → `None`
-    pub fn adb_ux_code_hint(&self) -> Option<&'static str> {
+    /// Returns `None` when the failure has no specific meaning beyond the
+    /// operation that produced it; callers then pick an operation-level code.
+    pub fn code(&self) -> Option<&'static str> {
         match self {
             CommandExecutionError::ProcessIo(err) if err.is_not_found() => Some("ADB_MISSING"),
             CommandExecutionError::ProcessIo(_) => Some("ADB_PATH_INVALID"),
+            CommandExecutionError::ProcessStatus(err) => classify_adb_output(err.output()),
+            CommandExecutionError::Rejected { output, .. } => classify_adb_output(output),
+            CommandExecutionError::Timeout { .. } => Some("ADB_TIMEOUT"),
             CommandExecutionError::ApkMissing { .. } => Some("APK_MISSING"),
-            CommandExecutionError::ProcessStatus(_) => None,
+            CommandExecutionError::InvalidArgument { .. } => Some("INVALID_ARGUMENT"),
             CommandExecutionError::Io(_) => None,
-        }
-    }
-
-    pub fn as_process_io(&self) -> Option<&ProcessIoError> {
-        match self {
-            CommandExecutionError::ProcessIo(e) => Some(e),
-            _ => None,
-        }
-    }
-
-    pub fn as_process_status(&self) -> Option<&ProcessStatusError> {
-        match self {
-            CommandExecutionError::ProcessStatus(e) => Some(e),
-            _ => None,
         }
     }
 }
 
+/// Recognize the device-state errors adb prints, whatever the subcommand.
+fn classify_adb_output(output: &str) -> Option<&'static str> {
+    let lower = output.to_ascii_lowercase();
+    if lower.contains("unauthorized") {
+        Some("DEVICE_UNAUTHORIZED")
+    } else if lower.contains("device offline") {
+        Some("DEVICE_OFFLINE")
+    } else if lower.contains("more than one device") {
+        Some("MULTIPLE_DEVICES")
+    } else if lower.contains("not found") && lower.contains("device")
+        || lower.contains("no devices/emulators found")
+    {
+        Some("DEVICE_NOT_FOUND")
+    } else {
+        None
+    }
+}
+
+fn last_meaningful_line(output: &str) -> Option<&str> {
+    output.lines().map(str::trim).rfind(|line| !line.is_empty())
+}
+
 impl fmt::Display for CommandExecutionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            CommandExecutionError::ProcessIo(ref err) => write!(f, "{}", err),
-            CommandExecutionError::ProcessStatus(ref err) => write!(f, "{}", err),
-            CommandExecutionError::Io(ref err) => write!(f, "IO error: {}", err),
-            CommandExecutionError::ApkMissing { ref path } => write!(
-                f,
-                "gnirehtet APK not found at '{}' (APK_MISSING); set GNIREHTET_APK or place resources/gnirehtet.apk",
-                path
-            ),
+        match self {
+            CommandExecutionError::ProcessIo(err) => write!(f, "{err}"),
+            CommandExecutionError::ProcessStatus(err) => write!(f, "{err}"),
+            CommandExecutionError::Rejected { cmd, output } => {
+                write!(f, "`{cmd}` reported a failure")?;
+                if let Some(line) = last_meaningful_line(output) {
+                    write!(f, ": {line}")?;
+                }
+                Ok(())
+            }
+            CommandExecutionError::Timeout { cmd, after } => {
+                write!(f, "`{cmd}` did not finish within {}s", after.as_secs())
+            }
+            CommandExecutionError::ApkMissing { path } => {
+                write!(f, "gnirehtet client APK not found at '{path}'")
+            }
+            CommandExecutionError::InvalidArgument { name, reason } => {
+                write!(f, "Invalid {name}: {reason}")
+            }
+            CommandExecutionError::Io(err) => write!(f, "I/O error: {err}"),
         }
     }
 }
 
 impl error::Error for CommandExecutionError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match *self {
-            CommandExecutionError::ProcessIo(ref err) => Some(err),
-            CommandExecutionError::ProcessStatus(ref err) => Some(err),
-            CommandExecutionError::Io(ref err) => Some(err),
-            CommandExecutionError::ApkMissing { .. } => None,
+        match self {
+            CommandExecutionError::ProcessIo(err) => Some(err),
+            CommandExecutionError::ProcessStatus(err) => Some(err),
+            CommandExecutionError::Io(err) => Some(err),
+            _ => None,
         }
     }
 }
@@ -241,31 +294,71 @@ impl From<io::Error> for CommandExecutionError {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
+    fn exit_status(code: i32) -> ExitStatus {
+        ExitStatus::from_raw(code << 8)
+    }
+
     #[test]
-    fn ux_hint_not_found_is_adb_missing() {
+    fn not_found_is_adb_missing() {
         let err = CommandExecutionError::from(ProcessIoError::new(
             Cmd::new("adb", vec!["version"]),
             io::Error::new(io::ErrorKind::NotFound, "no such file"),
         ));
-        assert_eq!(err.adb_ux_code_hint(), Some("ADB_MISSING"));
-        assert!(err.as_process_io().unwrap().is_not_found());
+        assert_eq!(err.code(), Some("ADB_MISSING"));
     }
 
     #[test]
-    fn ux_hint_other_io_is_path_invalid() {
+    fn other_spawn_failure_is_path_invalid() {
         let err = CommandExecutionError::from(ProcessIoError::new(
             Cmd::new("/bad/adb", vec!["version"]),
             io::Error::new(io::ErrorKind::PermissionDenied, "denied"),
         ));
-        assert_eq!(err.adb_ux_code_hint(), Some("ADB_PATH_INVALID"));
+        assert_eq!(err.code(), Some("ADB_PATH_INVALID"));
     }
 
     #[test]
-    fn ux_hint_apk_missing() {
+    fn apk_missing_code() {
         let err = CommandExecutionError::ApkMissing {
             path: "/no/such/gnirehtet.apk".into(),
         };
-        assert_eq!(err.adb_ux_code_hint(), Some("APK_MISSING"));
-        assert!(err.to_string().contains("APK_MISSING"));
+        assert_eq!(err.code(), Some("APK_MISSING"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn device_errors_are_classified_from_output() {
+        let cases = [
+            (
+                "adb: device unauthorized.\nThis adb server's $ADB_VENDOR_KEYS",
+                "DEVICE_UNAUTHORIZED",
+            ),
+            ("adb: device offline", "DEVICE_OFFLINE"),
+            ("adb: more than one device/emulator", "MULTIPLE_DEVICES"),
+            ("adb: device 'XYZ' not found", "DEVICE_NOT_FOUND"),
+            ("adb: no devices/emulators found", "DEVICE_NOT_FOUND"),
+        ];
+        for (output, code) in cases {
+            let err = CommandExecutionError::from(ProcessStatusError::new(
+                Cmd::new("adb", vec!["shell"]),
+                exit_status(1),
+                output,
+            ));
+            assert_eq!(err.code(), Some(code), "output: {output}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn display_includes_last_output_line() {
+        let err = ProcessStatusError::new(
+            Cmd::new("adb", vec!["install", "x.apk"]),
+            exit_status(1),
+            "Performing Streamed Install\nadb: failed to install x.apk: INSTALL_FAILED_USER_RESTRICTED\n",
+        );
+        assert_eq!(
+            err.to_string(),
+            "`adb install x.apk` exited with code 1: adb: failed to install x.apk: INSTALL_FAILED_USER_RESTRICTED"
+        );
     }
 }

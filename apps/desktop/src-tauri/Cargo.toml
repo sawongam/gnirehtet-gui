@@ -1,10 +1,11 @@
 [package]
 name = "gnirehtet-desktop"
 version = "0.1.0"
-description = "Desktop GUI shell for gnirehtet reverse tethering (Tauri 2 host-orchestrator)"
+description = "Desktop app for gnirehtet reverse tethering"
 authors = ["sawongam <sangamadhikari.61@gmail.com>"]
-edition = "2021"
-license = "Apache-2.0"
+edition.workspace = true
+license.workspace = true
+publish = false
 
 [lib]
 name = "gnirehtet_desktop_lib"
@@ -15,10 +16,6 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
-tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-thiserror = "2"
+log = "0.4"
 gnirehtet-controller = { path = "../../../crates/gnirehtet-controller" }
-# Desktop MVP does NOT depend on gnirehtet-relay / relaylib — controller spawns external binary.

@@ -3,13 +3,13 @@
   import type { Snippet } from "svelte";
   import type { HTMLButtonAttributes } from "svelte/elements";
 
-  type Variant = "default" | "secondary" | "destructive" | "ghost" | "outline";
-  type Size = "default" | "sm" | "lg";
+  type Variant = "primary" | "secondary" | "destructive" | "ghost";
+  type Size = "md" | "sm";
 
   let {
     class: className = "",
-    variant = "default" as Variant,
-    size = "default" as Size,
+    variant = "primary",
+    size = "md",
     children,
     ...rest
   }: HTMLButtonAttributes & {
@@ -19,32 +19,25 @@
   } = $props();
 
   const variants: Record<Variant, string> = {
-    default:
-      "bg-accent text-accent-fg hover:bg-accent-600 active:bg-accent-700 shadow-sm border border-transparent",
-    secondary:
-      "bg-bg-elevated text-fg border border-border hover:bg-bg-muted",
-    /* V3: soft red fill — not solid red blocks */
-    destructive:
-      "bg-danger-bg text-danger border border-danger-soft hover:bg-danger-soft",
-    ghost: "bg-transparent text-fg-muted hover:bg-bg-muted hover:text-fg border border-transparent",
-    outline:
-      "bg-bg-elevated text-accent border border-accent/40 hover:bg-accent-50",
+    primary: "border-transparent bg-accent text-accent-fg shadow-sm hover:bg-accent-600 active:bg-accent-700",
+    secondary: "border-border bg-bg-elevated text-fg hover:bg-bg-muted",
+    destructive: "border-danger/30 bg-danger-bg text-danger-strong hover:bg-danger-soft",
+    ghost: "border-transparent bg-transparent text-fg-muted hover:bg-bg-muted hover:text-fg",
   };
 
   const sizes: Record<Size, string> = {
-    default: "h-10 px-4 text-sm", /* 40px primary */
+    md: "h-9 px-4 text-sm",
     sm: "h-8 px-3 text-xs",
-    lg: "h-11 px-5 text-base",
   };
 </script>
 
 <button
   type="button"
   class={cn(
-    "inline-flex items-center justify-center gap-1.5 rounded-[var(--radius)] font-medium transition-colors",
+    "inline-flex items-center justify-center gap-1.5 rounded-[var(--radius)] border font-medium transition-colors",
+    "disabled:pointer-events-none disabled:opacity-50",
     variants[variant],
     sizes[size],
-    "disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-muted disabled:text-fg-subtle disabled:shadow-none disabled:border-border-subtle disabled:hover:bg-bg-muted disabled:hover:text-fg-subtle disabled:hover:opacity-100",
     className,
   )}
   {...rest}

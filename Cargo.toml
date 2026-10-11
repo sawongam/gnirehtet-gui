@@ -7,10 +7,8 @@ members = [
   "crates/gnirehtet-cli",
   "crates/gnirehtet-controller",
 ]
-# Desktop MVP does NOT link relaylib in-process — GUI spawns external `gnirehtet`
-# via externalBin / PATH (see apps/desktop/docs/SIDECAR.md).
-# Phase 1 CLI may link relaylib for verb parity (`gnirehtet relay`); GUI must not.
-# Phase 2 controller depends on gnirehtet-adb only (sidecar relay child).
+# The desktop app never links the relay in-process: it runs the `gnirehtet`
+# binary as a sidecar process (see docs/ARCHITECTURE.md).
 
 [workspace.package]
 edition = "2021"

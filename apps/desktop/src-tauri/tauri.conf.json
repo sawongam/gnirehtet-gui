@@ -1,8 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "gnirehtet-gui",
+  "mainBinaryName": "gnirehtet-gui",
   "version": "0.1.0",
-  "identifier": "com.gnirehtet.gui",
+  "identifier": "io.github.sawongam.gnirehtet-gui",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,25 +13,29 @@
   "app": {
     "windows": [
       {
-        "title": "gnirehtet-gui",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 960,
-        "minHeight": 640
+        "label": "main",
+        "title": "Gnirehtet",
+        "width": 1120,
+        "height": 760,
+        "minWidth": 880,
+        "minHeight": 600
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src ipc: http://ipc.localhost",
+      "devCsp": null
     }
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "deb",
-      "rpm",
-      "nsis",
-      "msi"
-    ],
+    "targets": "all",
+    "category": "Utility",
+    "shortDescription": "Reverse tethering for Android over USB",
+    "longDescription": "Share your computer's internet connection with an Android device over USB, without root. A desktop front-end for Genymobile's gnirehtet.",
+    "copyright": "Copyright (c) Sangam Adhikari and contributors. gnirehtet (c) Genymobile.",
+    "publisher": "Sangam Adhikari",
+    "homepage": "https://github.com/sawongam/gnirehtet-gui",
+    "license": "Apache-2.0",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -38,21 +43,31 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "../../../resources/*"
-    ],
+    "resources": {
+      "../../../resources/gnirehtet.apk": "gnirehtet.apk"
+    },
     "externalBin": [
-      "binaries/gnirehtet"
+      "binaries/gnirehtet-relay"
     ],
+    "linux": {
+      "deb": {
+        "recommends": [
+          "adb"
+        ],
+        "desktopTemplate": "linux/gnirehtet-gui.desktop"
+      },
+      "rpm": {
+        "recommends": [
+          "android-tools"
+        ],
+        "desktopTemplate": "linux/gnirehtet-gui.desktop"
+      }
+    },
     "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": ""
-    }
-  },
-  "plugins": {
-    "shell": {
-      "open": true
+      "digestAlgorithm": "sha256"
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
     }
   }
 }

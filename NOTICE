@@ -1,6 +1,9 @@
 gnirehtet-gui
 Copyright (c) Sangam Adhikari and contributors
 
-This product will include components derived from Genymobile gnirehtet
+This product includes components derived from Genymobile gnirehtet
 (https://github.com/Genymobile/gnirehtet), Copyright (C) Genymobile,
 licensed under the Apache License, Version 2.0.
+
+Binary distributions of this product bundle the unmodified gnirehtet v2.5.1
+relay and Android client (gnirehtet.apk) from the upstream release.

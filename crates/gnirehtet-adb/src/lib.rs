@@ -13,14 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * gnirehtet-adb: ADB extract for gnirehtet-gui (Phase 1+).
- * ByteBuffer is local — this crate must NOT depend on relaylib.
+ * Modified for gnirehtet-gui: ADB client extracted from the gnirehtet relay
+ * so that it can be reused without the relay (mio) dependencies.
  */
 
-//! ADB client and device monitor extracted from Genymobile gnirehtet.
-//!
-//! Phase 1 goal: reusable `AdbClient` without coupling to the mio relay path.
-//! Also exposes `ensure_adb` / `list_devices` for Desktop discovery/health.
+//! ADB client and device monitor for gnirehtet.
 
 pub mod buffer;
 pub mod client;
@@ -29,8 +26,9 @@ pub mod monitor;
 
 pub use crate::buffer::ByteBuffer;
 pub use crate::client::{
-    apk_search_candidates, parse_adb_devices_l, resolve_apk_path, AdbClient, AdbConfig,
-    AdbDevice, AdbStatus, VpnOptions, REQUIRED_APK_VERSION_CODE,
+    background_command, parse_adb_devices_l, validate_dns_servers, validate_routes, AdbClient,
+    AdbConfig, AdbDevice, AdbStatus, VpnOptions, CLIENT_PACKAGE, DEFAULT_PORT,
+    REQUIRED_APK_VERSION_CODE,
 };
 pub use crate::error::{
     Cmd, CommandExecutionError, ProcessIoError, ProcessStatusError, Termination,
