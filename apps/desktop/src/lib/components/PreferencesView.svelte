@@ -3,6 +3,7 @@
   import { api, isTauri } from "$lib/api";
   import { app } from "$lib/app.svelte";
   import { settings, type Theme } from "$lib/settings.svelte";
+  import { isReady } from "$lib/session-logic";
   import type { Environment } from "$lib/types";
   import { DEFAULT_PORT, validateDnsServers, validatePort, validateRoutes } from "$lib/validation";
 
@@ -38,6 +39,14 @@
   onMount(async () => {
     if (isTauri()) environment = await api.getEnvironment().catch(() => null);
   });
+
+  const relayValue = $derived(
+    app.relay.state === "running" && app.relay.port
+      ? `Running on port ${app.relay.port}`
+      : app.relay.state === "crashed"
+        ? "Stopped unexpectedly"
+        : "Not running",
+  );
 
   const themes: { value: Theme; label: string }[] = [
     { value: "system", label: "System" },
@@ -88,6 +97,26 @@
   </form>
 
   <section class="group">
+    <div class="group-head"><h2 class="group-title">Phone</h2></div>
+    <div class="list">
+      <div class="row">
+        <span class="row-text">
+          <span class="row-title">Client app</span>
+          <span class="row-sub">Installed on the phone automatically the first time you connect.</span>
+        </span>
+        <button
+          type="button"
+          class="btn small"
+          onclick={() => app.installClient()}
+          disabled={app.sessionActive || app.busy || !isReady(app.selectedDevice)}
+        >
+          {app.task === "install" ? "Installing…" : "Reinstall"}
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="group">
     <div class="group-head"><h2 class="group-title">Appearance</h2></div>
     <div class="list">
       <div class="row">
@@ -123,6 +152,7 @@
           <span class="row-text">
             <span class="row-title">Relay</span>
             <span class="row-sub mono selectable">{environment.relayPath}</span>
+            <span class="row-sub numeric" class:tone-danger={app.relay.state === "crashed"}>{relayValue}</span>
           </span>
           <span class="row-end {environment.relayFound ? 'tone-success' : 'tone-danger'}">
             {environment.relayFound ? "Found" : "Missing"}
@@ -170,7 +200,7 @@
 
 <style>
   .first {
-    margin-top: 30px;
+    margin-top: 4px;
   }
 
   label.row {

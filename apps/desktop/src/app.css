@@ -1,6 +1,7 @@
 /*
- * Visual language follows the GNOME HIG (libadwaita): a header bar with a view
- * switcher, a centred status, and boxed lists. Colours are the libadwaita
+ * Visual language follows the GNOME HIG (libadwaita): a single connection
+ * screen built around a phone illustration, with the log and preferences in
+ * slide-in panels using boxed lists. Colours are the libadwaita
  * palette so the app sits naturally next to other desktop apps. Text uses the
  * platform UI font on purpose: it is what makes a native app look native.
  */
@@ -10,8 +11,6 @@
 
   --window: #fafafb;
   --view: #ffffff;
-  --headerbar: #ebebed;
-  --headerbar-shade: rgb(0 0 6 / 0.12);
   --fg: #1e1e24;
   --fg-dim: rgb(0 0 6 / 0.55);
   --fg-faint: rgb(0 0 6 / 0.38);
@@ -43,6 +42,18 @@
   --scrim: rgb(0 0 6 / 0.3);
   --dialog: #ffffff;
 
+  /* Phone illustration on the connection screen. */
+  --phone-frame: #26262b;
+  --phone-edge: rgb(255 255 255 / 0.08);
+  --screen: #f3f3f5;
+  --screen-dim: #d9d9de;
+  --screen-online: #e6f6ec;
+  --screen-card: #ffffff;
+  --screen-fg: #1e1e24;
+  --cable: #c4c4ca;
+  --wallpaper: radial-gradient(120% 70% at 20% 100%, #a9c9f5 0%, transparent 60%),
+    radial-gradient(110% 60% at 100% 10%, #d6c8f2 0%, transparent 65%), #eef1f7;
+
   --font-ui: "Adwaita Sans", Cantarell, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
     "Segoe UI", "Noto Sans", Ubuntu, sans-serif;
   --font-mono: "Adwaita Mono", "Source Code Pro", ui-monospace, "SF Mono", "Cascadia Mono", "DejaVu Sans Mono",
@@ -58,8 +69,6 @@
 
   --window: #222226;
   --view: #1d1d20;
-  --headerbar: #2e2e32;
-  --headerbar-shade: rgb(0 0 6 / 0.36);
   --fg: #ffffff;
   --fg-dim: rgb(255 255 255 / 0.6);
   --fg-faint: rgb(255 255 255 / 0.4);
@@ -87,6 +96,17 @@
 
   --scrim: rgb(0 0 6 / 0.5);
   --dialog: #36363a;
+
+  --phone-frame: #0e0e11;
+  --phone-edge: rgb(255 255 255 / 0.14);
+  --screen: #2a2a2f;
+  --screen-dim: #1a1a1e;
+  --screen-online: #15301f;
+  --screen-card: #3a3a40;
+  --screen-fg: #ffffff;
+  --cable: #4a4a50;
+  --wallpaper: radial-gradient(120% 70% at 20% 100%, #1f4a86 0%, transparent 60%),
+    radial-gradient(110% 60% at 100% 10%, #3d2f66 0%, transparent 65%), #1b1d26;
 }
 
 /* Rows sit on --card, which in dark mode is a lighter layer over the window. */

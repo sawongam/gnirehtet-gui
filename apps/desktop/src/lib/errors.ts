@@ -48,7 +48,7 @@ const HELP: Record<string, ErrorHelp> = {
   },
   MULTIPLE_DEVICES: {
     title: "Several devices are connected",
-    hint: "Select the phone to use under Phones.",
+    hint: "Choose the phone to use above the Connect button.",
   },
   PORT_IN_USE: {
     title: "The relay port is already in use",

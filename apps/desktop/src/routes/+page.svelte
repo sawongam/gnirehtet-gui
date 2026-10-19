@@ -1,16 +1,17 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
-  import HeaderBar, { type Page } from "$lib/components/HeaderBar.svelte";
+  import HeaderBar, { type Panel } from "$lib/components/HeaderBar.svelte";
   import Banner from "$lib/components/Banner.svelte";
   import ConnectionView from "$lib/components/ConnectionView.svelte";
   import LogsView from "$lib/components/LogsView.svelte";
   import PreferencesView from "$lib/components/PreferencesView.svelte";
   import Dialog from "$lib/components/ui/dialog.svelte";
+  import Sheet from "$lib/components/ui/sheet.svelte";
   import { app } from "$lib/app.svelte";
   import { isTauri } from "$lib/api";
 
-  let page = $state<Page>("connection");
+  let panel = $state<Panel | null>(null);
   let quitDialogOpen = $state(false);
   let quitting = $state(false);
 
@@ -43,19 +44,23 @@
 </script>
 
 <div class="window">
-  <HeaderBar bind:page />
-  <Banner onShowLog={() => (page = "logs")} />
-
-  <main class:fill={page === "logs"}>
-    {#if page === "connection"}
-      <ConnectionView />
-    {:else if page === "logs"}
-      <LogsView />
-    {:else}
-      <PreferencesView />
-    {/if}
+  <HeaderBar bind:panel />
+  <main>
+    <ConnectionView />
   </main>
+  <Banner onShowLog={() => (panel = "log")} />
 </div>
+
+<Sheet bind:open={() => panel === "log", (v) => (panel = v ? "log" : null)} title="Log" fill>
+  <LogsView />
+</Sheet>
+
+<Sheet
+  bind:open={() => panel === "preferences", (v) => (panel = v ? "preferences" : null)}
+  title="Preferences"
+>
+  <PreferencesView />
+</Sheet>
 
 <Dialog
   bind:open={quitDialogOpen}
@@ -68,6 +73,7 @@
 
 <style>
   .window {
+    position: relative;
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -78,13 +84,7 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 0 0 36px;
-  }
-
-  main.fill {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    padding: 0;
+    /* The phone illustration scales with the height available here. */
+    container-type: size;
   }
 </style>
