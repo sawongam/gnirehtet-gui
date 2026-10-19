@@ -168,14 +168,6 @@ impl ProcessIoError {
         Self { cmd, error }
     }
 
-    pub fn cmd(&self) -> &Cmd {
-        &self.cmd
-    }
-
-    pub fn io_error(&self) -> &io::Error {
-        &self.error
-    }
-
     /// `true` when the program could not be found.
     pub fn is_not_found(&self) -> bool {
         self.error.kind() == io::ErrorKind::NotFound

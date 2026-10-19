@@ -41,10 +41,6 @@ impl ByteBuffer {
         &self.buf[..self.head]
     }
 
-    pub fn peek_mut(&mut self) -> &mut [u8] {
-        &mut self.buf[..self.head]
-    }
-
     pub fn consume(&mut self, length: usize) {
         assert!(self.head >= length);
         self.head -= length;

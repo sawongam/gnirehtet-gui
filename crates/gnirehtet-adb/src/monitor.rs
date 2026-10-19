@@ -53,17 +53,11 @@ impl AdbMonitor {
     const RETRY_DELAY_ADB_DAEMON_KO: u64 = 5000;
 
     pub fn new(callback: Box<dyn AdbMonitorCallback>) -> Self {
-        Self::with_adb_path(
+        Self::with_config(
             callback,
             crate::client::default_adb_path().to_string_lossy(),
+            SocketAddr::from(([127, 0, 0, 1], 5037)),
         )
-    }
-
-    pub fn with_adb_path(
-        callback: Box<dyn AdbMonitorCallback>,
-        adb_path: impl Into<String>,
-    ) -> Self {
-        Self::with_config(callback, adb_path, SocketAddr::from(([127, 0, 0, 1], 5037)))
     }
 
     pub fn with_config(

@@ -19,16 +19,14 @@
 
 //! ADB client and device monitor for gnirehtet.
 
-pub mod buffer;
+mod buffer;
 pub mod client;
 pub mod error;
 pub mod monitor;
 
-pub use crate::buffer::ByteBuffer;
 pub use crate::client::{
-    background_command, parse_adb_devices_l, validate_dns_servers, validate_routes, AdbClient,
-    AdbConfig, AdbDevice, AdbStatus, VpnOptions, CLIENT_PACKAGE, DEFAULT_PORT,
-    REQUIRED_APK_VERSION_CODE,
+    background_command, validate_dns_servers, validate_routes, AdbClient, AdbConfig, AdbDevice,
+    AdbStatus, VpnOptions, CLIENT_PACKAGE, DEFAULT_PORT, REQUIRED_APK_VERSION_CODE,
 };
 pub use crate::error::{
     Cmd, CommandExecutionError, ProcessIoError, ProcessStatusError, Termination,

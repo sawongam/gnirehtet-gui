@@ -71,10 +71,6 @@ class Settings {
     applyTheme(this.#values.theme);
   }
 
-  reset() {
-    this.update({ ...DEFAULTS });
-  }
-
   connectOptions(): ConnectOptions {
     return {
       port: this.#values.port,
