@@ -2,7 +2,7 @@
 name = "gnirehtet-desktop"
 version.workspace = true
 description = "Desktop app for gnirehtet reverse tethering"
-authors = ["Sangam Adhikari <sangamadhikari.61@gmail.com>"]
+authors = ["Sangam Adhikari"]
 edition.workspace = true
 license.workspace = true
 publish = false
