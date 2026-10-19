@@ -40,6 +40,14 @@
     if (isTauri()) environment = await api.getEnvironment().catch(() => null);
   });
 
+  const REPO_URL = "https://github.com/sawongam/gnirehtet-gui";
+
+  function openRepo(event: MouseEvent) {
+    if (!isTauri()) return;
+    event.preventDefault();
+    api.openRepo().catch(() => {});
+  }
+
   const themes: { value: Theme; label: string }[] = [
     { value: "system", label: "System" },
     { value: "light", label: "Light" },
@@ -134,8 +142,8 @@
     <div class="list">
       <div class="row">
         <span class="row-text">
-          <span class="row-title">Gnirehtet{environment ? ` ${environment.appVersion}` : ""}</span>
-          <span class="row-sub mono selectable">github.com/sawongam/gnirehtet-gui</span>
+          <span class="row-title">Gnirehtet GUI{environment ? ` ${environment.appVersion}` : ""}</span>
+          <a class="row-sub mono link" href={REPO_URL} onclick={openRepo}>github.com/sawongam/gnirehtet-gui</a>
         </span>
       </div>
       <div class="row">
@@ -146,6 +154,16 @@
 </div>
 
 <style>
+  .link {
+    width: fit-content;
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .link:hover {
+    text-decoration: underline;
+  }
+
   .first {
     margin-top: 4px;
   }

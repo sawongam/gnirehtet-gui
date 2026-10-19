@@ -22,6 +22,7 @@ export const api = {
   installClient: (serial: string) => invoke<void>("install_client", { serial }),
   repairTunnel: (serial: string) => invoke<void>("repair_tunnel", { serial }),
   getEnvironment: () => invoke<Environment>("get_environment"),
+  openRepo: () => invoke<void>("open_repo"),
 };
 
 export type Listeners = {
