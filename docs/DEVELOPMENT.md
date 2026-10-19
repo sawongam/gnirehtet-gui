@@ -130,7 +130,7 @@ build`. This does not affect the `.deb` and `.rpm`, and CI builds on Ubuntu
 
 ## Releasing
 
-Pull requests run the **CI** workflow. Every push to `master` runs CI again and
+Pull requests run the **CI** workflow. Every push to `prod` runs CI again and
 then the **Release** workflow, which publishes a release only when the app
 version has no `v<version>` tag yet. To release:
 

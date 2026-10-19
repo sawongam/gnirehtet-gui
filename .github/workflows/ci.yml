@@ -1,7 +1,7 @@
 name: CI
 
 # Runs on every pull request, and from release.yml before each release build.
-# Make "CI passed" a required status check on master so a PR can only merge
+# Make "CI passed" a required status check on prod so a PR can only merge
 # once everything here is green.
 on:
   pull_request:
@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 22
       # The version must match everywhere and have a CHANGELOG.md section,
-      # because merging a new version to master publishes it.
+      # because merging a new version to prod publishes it.
       - run: node scripts/release-info.mjs --notes "$RUNNER_TEMP/notes.md"
 
   frontend:

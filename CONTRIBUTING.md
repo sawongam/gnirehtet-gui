@@ -6,7 +6,7 @@ Bug reports, fixes and improvements are welcome.
 
 Open an [issue](https://github.com/sawongam/gnirehtet-gui/issues) and include
 your operating system, phone model and Android version, the app version, and
-the log from the **Logs** page. [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+the log from the **Log** page. [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 lists what else helps.
 
 Problems with the networking itself (particular apps or protocols not working
@@ -17,7 +17,7 @@ also happen with the `gnirehtet` command-line tool, report them there.
 ## Making a change
 
 1. Set up the project as described in [DEVELOPMENT.md](docs/DEVELOPMENT.md).
-2. Create a branch from `dev`.
+2. Create a branch from `master`.
 3. Keep the change focused. Add or update tests for behavior changes. The
    session logic in `apps/desktop/src-tauri/src/session.rs` and
    `apps/desktop/src/lib/session-logic.ts` is covered by tests that do not need
@@ -31,11 +31,12 @@ also happen with the `gnirehtet` command-line tool, report them there.
    ```
 5. For changes to the connection flow, go through the manual test checklist in
    DEVELOPMENT.md with a real phone.
-6. Open a pull request against `dev`. Say what changed, why, and how you tested
+6. Open a pull request against `master`. Say what changed, why, and how you tested
    it.
 
-Commit messages follow [Conventional Commits](docs/COMMIT_CONVENTION.md)
-(`fix: …`, `feat(ui): …`, `docs: …`).
+Commit messages use the [Conventional Commits](https://www.conventionalcommits.org/)
+prefixes (`fix:`, `feat:`, `docs:`, `refactor:` and so on), with a short
+imperative summary such as `fix: stop the client before removing the tunnel`.
 
 ## Guidelines
 

@@ -1,7 +1,7 @@
 {
   "name": "gnirehtet-gui-desktop",
   "version": "0.1.0",
-  "description": "Desktop app for gnirehtet reverse tethering (Tauri 2 + SvelteKit)",
+  "description": "Desktop app for gnirehtet reverse tethering",
   "type": "module",
   "scripts": {
     "setup": "node ../../scripts/fetch-upstream.mjs",

@@ -9,8 +9,18 @@ is online. The app takes care of the parts of gnirehtet that usually happen in a
 terminal: starting the relay, installing the Android client, setting up the adb
 tunnel, and cleaning up when you disconnect or unplug.
 
+<p align="center">
+  <img src="docs/screenshots/connected-light.png" alt="Gnirehtet connected to a phone, light theme" width="45%">
+  &nbsp;
+  <img src="docs/screenshots/connected-dark.png" alt="Gnirehtet connected to a phone, dark theme" width="45%">
+</p>
+
 It uses the unmodified gnirehtet **v2.5.1** relay and Android client; this project
 adds the desktop interface and the process management around them.
+
+The upstream relay source is also vendored in `crates/gnirehtet-relay`, because
+upstream ships no prebuilt relay for macOS or ARM. On those platforms the build
+compiles it from that copy instead of downloading it.
 
 ## Features
 

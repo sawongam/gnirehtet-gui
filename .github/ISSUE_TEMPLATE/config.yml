@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Networking problems (apps or protocols not working through the tunnel)
+    url: https://github.com/Genymobile/gnirehtet/issues
+    about: If it also happens with the gnirehtet command-line tool, report it upstream.
