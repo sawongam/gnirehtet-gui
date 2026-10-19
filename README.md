@@ -1,13 +1,19 @@
-# Gnirehtet GUI
+# Gnirehtet GUI: reverse tethering for Android over USB
 
-A desktop app for [gnirehtet](https://github.com/Genymobile/gnirehtet): share your
-computer's internet connection with an Android phone over USB, without root and
-without configuring anything on the phone.
+[![Latest release](https://img.shields.io/github/v/release/sawongam/gnirehtet-gui)](https://github.com/sawongam/gnirehtet-gui/releases/latest)
+[![CI](https://github.com/sawongam/gnirehtet-gui/actions/workflows/ci.yml/badge.svg)](https://github.com/sawongam/gnirehtet-gui/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/sawongam/gnirehtet-gui)](LICENSE)
 
-Plug the phone in, click **Connect**, accept the VPN prompt on the phone, and it
-is online. The app takes care of the parts of gnirehtet that usually happen in a
-terminal: starting the relay, installing the Android client, setting up the adb
-tunnel, and cleaning up when you disconnect or unplug.
+Use your computer's internet connection on your Android phone through a USB
+cable. No root, no Wi-Fi hotspot, nothing to configure on the phone. Runs on
+Linux, Windows and macOS.
+
+This is a desktop app for [gnirehtet](https://github.com/Genymobile/gnirehtet),
+the reverse tethering tool by Genymobile. Plug the phone in, click **Connect**,
+accept the VPN prompt on the phone, and it is online. The app handles the parts
+of gnirehtet that usually happen in a terminal: starting the relay, installing
+the Android client, setting up the adb tunnel, and cleaning up when you
+disconnect or unplug.
 
 <p align="center">
   <img src="docs/screenshots/connected-light.png" alt="Gnirehtet connected to a phone, light theme" width="45%">
@@ -21,6 +27,14 @@ adds the desktop interface and the process management around them.
 The upstream relay source is also vendored in `crates/gnirehtet-relay`, because
 upstream ships no prebuilt relay for macOS or ARM. On those platforms the build
 compiles it from that copy instead of downloading it.
+
+## When it's useful
+
+- Your desktop is on wired Ethernet and there's no Wi-Fi for the phone.
+- The phone has no SIM, no data plan, or weak signal where you are.
+- You're testing an app on a real device and want it on the same network as
+  your computer, including its VPN.
+- You want to save mobile data while the phone is plugged in anyway.
 
 ## Features
 
@@ -71,6 +85,25 @@ These come from gnirehtet itself:
 - IPv4 only: IPv6 traffic is not relayed.
 - TCP and UDP only (no ICMP, so `ping` does not work on the phone).
 - One phone at a time in this app.
+
+## FAQ
+
+**Is this the same as USB tethering?**
+No, it's the opposite direction. Android's built-in USB tethering shares the
+*phone's* mobile data with the computer. Reverse tethering shares the
+*computer's* connection with the phone.
+
+**Does the phone need root?**
+No. The Android client uses the standard VPN API, which is why the phone asks
+you to accept a connection request. Android 5.0 or newer is enough.
+
+**Do I need to install anything on the phone?**
+Only USB debugging has to be enabled. The app installs the small gnirehtet
+client on the phone the first time you connect.
+
+**Does it work without the command line?**
+Yes, that's the point of this app. You still need adb installed on the
+computer, but you never have to run it yourself.
 
 ## Building from source
 
