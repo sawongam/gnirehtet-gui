@@ -1,12 +1,12 @@
 name: Release
 
-# Every push to master runs CI. If the app version has no release yet, it then
+# Every push to prod runs CI. If the app version has no release yet, it then
 # builds installers for every platform into a draft release v<version>, checks
 # that all of them are there, adds SHA256SUMS and publishes the release.
 # Pushes that keep the same version only run CI.
 on:
   push:
-    branches: [master]
+    branches: [prod]
   workflow_dispatch:
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
   prepare:
     name: Prepare release
     needs: ci
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/prod'
     runs-on: ubuntu-22.04
     permissions:
       contents: write

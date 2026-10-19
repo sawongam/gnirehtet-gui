@@ -1,0 +1,49 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Computer OS
+      placeholder: "Ubuntu 24.04, Windows 11, macOS 15, ..."
+    validations:
+      required: true
+  - type: input
+    id: phone
+    attributes:
+      label: Phone model and Android version
+      placeholder: "Pixel 8, Android 15"
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: How you installed the app
+      placeholder: ".deb, AppImage, .msi, built from source, ..."
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: Open the Log page, click Copy and paste it here.
+      render: text
+  - type: checkboxes
+    id: upstream
+    attributes:
+      label: Upstream check
+      options:
+        - label: I checked whether the same problem happens with the `gnirehtet` command-line tool (if it does, it's probably an upstream issue).

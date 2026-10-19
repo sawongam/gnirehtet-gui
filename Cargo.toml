@@ -11,6 +11,8 @@ members = [
 # binary as a sidecar process (see docs/ARCHITECTURE.md).
 
 [workspace.package]
+# The app version. Everything else inherits it; see docs/DEVELOPMENT.md.
+version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 

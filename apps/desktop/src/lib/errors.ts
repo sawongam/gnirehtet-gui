@@ -62,6 +62,10 @@ const HELP: Record<string, ErrorHelp> = {
     title: "The relay could not start",
     hint: "The Log has the details. A firewall or security tool may be blocking it.",
   },
+  RELAY_ALREADY_RUNNING: {
+    title: "The relay is already running",
+    hint: "A connection is still active. Disconnect first, then connect again.",
+  },
   RELAY_CRASHED: {
     title: "The relay stopped unexpectedly",
     hint: "Reconnect to start it again. The Log has the details.",

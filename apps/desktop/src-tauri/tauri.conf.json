@@ -2,7 +2,6 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "gnirehtet-gui",
   "mainBinaryName": "gnirehtet-gui",
-  "version": "0.1.0",
   "identifier": "io.github.sawongam.gnirehtet-gui",
   "build": {
     "beforeDevCommand": "npm run dev",
