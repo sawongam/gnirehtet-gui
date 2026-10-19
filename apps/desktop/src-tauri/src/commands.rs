@@ -91,5 +91,8 @@ pub fn open_repo() -> Result<(), String> {
         cmd.args(["/C", "start", ""]);
         cmd
     };
-    cmd.arg(REPO_URL).spawn().map(drop).map_err(|e| e.to_string())
+    cmd.arg(REPO_URL)
+        .spawn()
+        .map(drop)
+        .map_err(|e| e.to_string())
 }
