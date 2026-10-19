@@ -3,6 +3,7 @@
   import { api, isTauri } from "$lib/api";
   import { app } from "$lib/app.svelte";
   import { settings, type Theme } from "$lib/settings.svelte";
+  import { isReady } from "$lib/session-logic";
   import type { Environment } from "$lib/types";
   import { DEFAULT_PORT, validateDnsServers, validatePort, validateRoutes } from "$lib/validation";
 
@@ -38,6 +39,14 @@
   onMount(async () => {
     if (isTauri()) environment = await api.getEnvironment().catch(() => null);
   });
+
+  const REPO_URL = "https://github.com/sawongam/gnirehtet-gui";
+
+  function openRepo(event: MouseEvent) {
+    if (!isTauri()) return;
+    event.preventDefault();
+    api.openRepo().catch(() => {});
+  }
 
   const themes: { value: Theme; label: string }[] = [
     { value: "system", label: "System" },
@@ -88,6 +97,26 @@
   </form>
 
   <section class="group">
+    <div class="group-head"><h2 class="group-title">Phone</h2></div>
+    <div class="list">
+      <div class="row">
+        <span class="row-text">
+          <span class="row-title">Client app</span>
+          <span class="row-sub">Installed on the phone automatically the first time you connect.</span>
+        </span>
+        <button
+          type="button"
+          class="btn small"
+          onclick={() => app.installClient()}
+          disabled={app.sessionActive || app.busy || !isReady(app.selectedDevice)}
+        >
+          {app.task === "install" ? "Installing…" : "Reinstall"}
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="group">
     <div class="group-head"><h2 class="group-title">Appearance</h2></div>
     <div class="list">
       <div class="row">
@@ -109,68 +138,34 @@
   </section>
 
   <section class="group">
-    <div class="group-head"><h2 class="group-title">Diagnostics</h2></div>
-    {#if environment}
-      <div class="list">
-        <div class="row">
-          <span class="row-text">
-            <span class="row-title">adb</span>
-            <span class="row-sub mono selectable">{environment.adbPath}{app.adb ? ` · ${app.adb.version}` : ""}</span>
-          </span>
-          <span class="row-end {app.adb ? 'tone-success' : 'tone-danger'}">{app.adb ? "Working" : "Not working"}</span>
-        </div>
-        <div class="row">
-          <span class="row-text">
-            <span class="row-title">Relay</span>
-            <span class="row-sub mono selectable">{environment.relayPath}</span>
-          </span>
-          <span class="row-end {environment.relayFound ? 'tone-success' : 'tone-danger'}">
-            {environment.relayFound ? "Found" : "Missing"}
-          </span>
-        </div>
-        <div class="row">
-          <span class="row-text">
-            <span class="row-title">Client APK</span>
-            <span class="row-sub mono selectable">{environment.apkPath}</span>
-          </span>
-          <span class="row-end {environment.apkFound ? 'tone-success' : 'tone-danger'}">
-            {environment.apkFound ? "Found" : "Missing"}
-          </span>
-        </div>
-      </div>
-      <p class="group-note">
-        Override these with the <span class="mono">ADB</span>, <span class="mono">GNIREHTET_BIN</span> and
-        <span class="mono">GNIREHTET_APK</span> environment variables.
-      </p>
-    {:else}
-      <div class="list">
-        <div class="row"><span class="row-text row-sub">Only available in the desktop app.</span></div>
-      </div>
-    {/if}
-  </section>
-
-  <section class="group">
     <div class="group-head"><h2 class="group-title">About</h2></div>
     <div class="list">
       <div class="row">
         <span class="row-text">
-          <span class="row-title">Gnirehtet{environment ? ` ${environment.appVersion}` : ""}</span>
-          <span class="row-sub">
-            Desktop app for gnirehtet 2.5.1 by Genymobile. Apache License 2.0.
-          </span>
+          <span class="row-title">Gnirehtet GUI{environment ? ` ${environment.appVersion}` : ""}</span>
+          <a class="row-sub mono link" href={REPO_URL} onclick={openRepo}>github.com/sawongam/gnirehtet-gui</a>
         </span>
       </div>
       <div class="row">
-        <span class="row-text"><span class="row-title">Upstream</span></span>
-        <span class="row-end mono selectable">github.com/Genymobile/gnirehtet</span>
+        <span class="row-text row-sub">Built on gnirehtet 2.5.1 by Genymobile. Apache License 2.0.</span>
       </div>
     </div>
   </section>
 </div>
 
 <style>
+  .link {
+    width: fit-content;
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .link:hover {
+    text-decoration: underline;
+  }
+
   .first {
-    margin-top: 30px;
+    margin-top: 4px;
   }
 
   label.row {

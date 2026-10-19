@@ -63,6 +63,7 @@ pub fn run() {
             commands::install_client,
             commands::repair_tunnel,
             commands::get_environment,
+            commands::open_repo,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build the application");

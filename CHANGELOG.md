@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0]
+
+First stable release.
+
+### Added
+
+- Link to the project's GitHub page under **Preferences → About**.
+- The installers include the `LICENSE` and `NOTICE` files.
+
+### Changed
+
+- Redesigned main window: a single connection screen with a phone illustration
+  that shows the current state, one primary action at a time, and a phone
+  picker that appears only when more than one phone is plugged in, replacing
+  the Phones list. The log and Preferences open as slide-in panels instead of
+  separate pages.
+- The adb, relay and APK paths in use are written to the first line of the log
+  instead of a Diagnostics section in Preferences.
+- Building from source uses pnpm instead of npm.
+- Release files are named after the system they are for, such as
+  `gnirehtet-gui-<version>-windows-x64-setup.exe` and
+  `gnirehtet-gui-<version>-macos-apple-silicon.dmg`, and the release notes start
+  with a Downloads table.
+- Windows is shipped as the `-setup.exe` installer only; the `.msi` and the
+  macOS `.app.tar.gz` archives are no longer published. Checksums are in
+  `SHA256SUMS.txt`.
+
 ## [0.1.0]
 
 First public release.
@@ -29,5 +56,6 @@ First public release.
 - Installers: `.deb`, `.rpm`, AppImage, `.msi`, NSIS `.exe` and `.dmg`, built by
   the release workflow.
 
-[Unreleased]: https://github.com/sawongam/gnirehtet-gui/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/sawongam/gnirehtet-gui/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/sawongam/gnirehtet-gui/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/sawongam/gnirehtet-gui/releases/tag/v0.1.0
