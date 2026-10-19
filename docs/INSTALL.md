@@ -136,9 +136,10 @@ Some manufacturers add extra switches:
 
 ## Connecting
 
-1. Open Gnirehtet. The phone appears in the device list as **Ready**.
-2. Select it and click **Connect**. The first time, the gnirehtet client is
-   installed on the phone.
+1. Open Gnirehtet. Once the phone is detected, the window shows **Ready to
+   connect**. With more than one phone plugged in, pick one above the status.
+2. Click **Connect**. The first time, the gnirehtet client is installed on the
+   phone.
 3. On the phone, accept the **Connection request** prompt. This is Android's
    standard confirmation for VPN apps; gnirehtet uses a local VPN to route the
    phone's traffic through the USB cable.
@@ -169,4 +170,4 @@ Environment variables, read at startup:
 | `GNIREHTET_BIN` | Path to a `gnirehtet` relay executable to use instead of the bundled one. |
 | `GNIREHTET_APK` | Path to a `gnirehtet.apk` to install instead of the bundled one. |
 
-The resolved paths are shown under **Settings → Diagnostics**.
+The paths the app ends up using are written to the first line of the **Log**.

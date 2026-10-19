@@ -10,8 +10,22 @@ project follows [Semantic Versioning](https://semver.org/).
 
 First stable release.
 
+### Added
+
+- Link to the project's GitHub page under **Preferences → About**.
+- The installers include the `LICENSE` and `NOTICE` files.
+
 ### Changed
 
+- Redesigned main window: a single connection screen with a phone illustration
+  that shows the current state, one primary action at a time, and a phone
+  picker that appears only when more than one phone is plugged in. The log and
+  Preferences open as slide-in panels instead of separate pages.
+- Clearer messages when adb is missing or the phone is unauthorized, with a
+  **Check again** button once adb is installed.
+- The adb, relay and APK paths in use are written to the first line of the log
+  instead of a Diagnostics section in Preferences.
+- Building from source uses pnpm instead of npm.
 - Release files are named after the system they are for, such as
   `gnirehtet-gui-<version>-windows-x64-setup.exe` and
   `gnirehtet-gui-<version>-macos-apple-silicon.dmg`, and the release notes start

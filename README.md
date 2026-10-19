@@ -46,8 +46,8 @@ compiles it from that copy instead of downloading it.
 - Restores the USB tunnel automatically when the cable is plugged back in.
 - Stops the VPN on the phone and the relay on the computer when you disconnect
   or quit.
-- Optional DNS servers, routes and relay port; light and dark themes; a log view
-  for troubleshooting.
+- Optional DNS servers, routes and relay port in Preferences; light and dark
+  themes; a log panel for troubleshooting.
 
 ## Install
 
@@ -73,7 +73,7 @@ system and for preparing the phone.
    number* seven times, then Settings → Developer options → USB debugging).
 2. Connect the phone with a USB cable and accept the *Allow USB debugging?*
    prompt on the phone.
-3. Open Gnirehtet, select the phone and click **Connect**.
+3. Open Gnirehtet and click **Connect**.
 4. Accept the *Connection request* (VPN) prompt on the phone.
 
 The phone now uses the computer's connection. Click **Disconnect** to stop.

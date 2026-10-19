@@ -127,7 +127,8 @@ Settings (port, DNS, routes, theme) are validated and stored in `localStorage`
 | `disconnect` | Stop the session. |
 | `install_client(serial)` | Reinstall the client APK. |
 | `repair_tunnel(serial)` | Recreate the reverse tunnel. |
-| `get_environment` | Resolved tool paths and app version, for diagnostics. |
+| `get_environment` | Resolved tool paths and app version (the version is shown under Preferences → About). |
+| `open_repo` | Open the project's GitHub page in the default browser. The URL is fixed in the backend. |
 
 Events: `log` (a log entry), `relay-status` (relay state changes) and
 `relay-client` (client connected or disconnected, with the current count).
@@ -180,7 +181,9 @@ Installed layout on Linux:
 - The content security policy allows only the app's own scripts and styles and
   the Tauri IPC channel; the app loads nothing remote.
 - Capabilities are reduced to `core:default` plus window destruction (used by
-  the quit confirmation). No shell, filesystem or opener plugins are included.
+  the quit confirmation). No shell, filesystem or opener plugins are included;
+  the one link the app opens (its GitHub page) goes through the `open_repo`
+  command, which takes no arguments.
 - Values from the UI never reach a shell unvalidated. The device serial, DNS
   servers and routes are checked in the backend: IPv4 addresses and CIDR
   ranges only.

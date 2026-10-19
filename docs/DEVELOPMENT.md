@@ -106,11 +106,14 @@ Before a release, go through these with a real phone:
       on the phone.
 - [ ] Unauthorized phone (revoke USB debugging authorizations): a clear message
       appears, and the phone becomes ready after accepting the prompt.
-- [ ] Two phones connected: a device can be selected and connected.
+- [ ] Two phones connected: the picker appears, and the selected phone
+      connects.
 - [ ] `gnirehtet relay` already running in a terminal: **Connect** reports that
       the port is in use and leaves the other relay alone.
-- [ ] adb missing from `PATH`: the setup checklist explains how to install it.
-- [ ] Custom DNS servers and port from Settings are applied.
+- [ ] adb missing from `PATH`: the window explains how to install it, and
+      **Check again** finds it once installed.
+- [ ] Custom DNS servers and port from Preferences are applied.
+- [ ] **Preferences → About** opens the GitHub page in the browser.
 
 ## Building installers
 
