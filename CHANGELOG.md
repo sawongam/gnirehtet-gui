@@ -19,10 +19,9 @@ First stable release.
 
 - Redesigned main window: a single connection screen with a phone illustration
   that shows the current state, one primary action at a time, and a phone
-  picker that appears only when more than one phone is plugged in. The log and
-  Preferences open as slide-in panels instead of separate pages.
-- Clearer messages when adb is missing or the phone is unauthorized, with a
-  **Check again** button once adb is installed.
+  picker that appears only when more than one phone is plugged in, replacing
+  the Phones list. The log and Preferences open as slide-in panels instead of
+  separate pages.
 - The adb, relay and APK paths in use are written to the first line of the log
   instead of a Diagnostics section in Preferences.
 - Building from source uses pnpm instead of npm.

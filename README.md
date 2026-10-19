@@ -1,7 +1,6 @@
 # Gnirehtet GUI: reverse tethering for Android over USB
 
 [![Latest release](https://img.shields.io/github/v/release/sawongam/gnirehtet-gui)](https://github.com/sawongam/gnirehtet-gui/releases/latest)
-[![CI](https://github.com/sawongam/gnirehtet-gui/actions/workflows/ci.yml/badge.svg)](https://github.com/sawongam/gnirehtet-gui/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/sawongam/gnirehtet-gui)](LICENSE)
 
 Use your computer's internet connection on your Android phone through a USB
