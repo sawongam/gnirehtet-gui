@@ -12,7 +12,7 @@ name = "relaylib"
 path = "src/lib.rs"
 
 [dependencies]
-mio = "0.6"
+mio = "1.2"
 slab = "0.4"
 log = "0.4"
 chrono = "0.4"
