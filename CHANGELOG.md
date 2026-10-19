@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0]
+
+First stable release.
+
 ### Changed
 
 - Release files are named after the system they are for, such as
@@ -39,5 +43,6 @@ First public release.
 - Installers: `.deb`, `.rpm`, AppImage, `.msi`, NSIS `.exe` and `.dmg`, built by
   the release workflow.
 
-[Unreleased]: https://github.com/sawongam/gnirehtet-gui/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/sawongam/gnirehtet-gui/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/sawongam/gnirehtet-gui/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/sawongam/gnirehtet-gui/releases/tag/v0.1.0

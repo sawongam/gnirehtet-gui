@@ -1198,14 +1198,14 @@ checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
 name = "gnirehtet-adb"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "log",
 ]
 
 [[package]]
 name = "gnirehtet-cli"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "ctrlc",
@@ -1216,7 +1216,7 @@ dependencies = [
 
 [[package]]
 name = "gnirehtet-controller"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "gnirehtet-adb",
  "log",
@@ -1224,7 +1224,7 @@ dependencies = [
 
 [[package]]
 name = "gnirehtet-desktop"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "gnirehtet-controller",
  "log",

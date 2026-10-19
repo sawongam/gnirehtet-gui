@@ -163,7 +163,7 @@ vendored sources. Neither file is committed.
 
 The release workflow (`.github/workflows/release.yml`) builds all of them on a
 push to `prod` with a new version, renames them after the system they are for
-(for example `gnirehtet-gui-0.1.0-macos-intel.dmg`) and publishes everything but
+(for example `gnirehtet-gui-1.0.0-macos-intel.dmg`) and publishes everything but
 the bare `.app`.
 
 Installed layout on Linux:
