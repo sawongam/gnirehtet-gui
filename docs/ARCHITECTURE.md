@@ -158,11 +158,13 @@ vendored sources. Neither file is committed.
 `tauri build` then produces:
 
 - Linux: `.deb`, `.rpm` and `.AppImage`
-- Windows: `.msi` and NSIS `.exe`
+- Windows: NSIS `-setup.exe`
 - macOS: `.app` and `.dmg`
 
-The release workflow (`.github/workflows/release.yml`) builds all of them when a
-`v*` tag is pushed.
+The release workflow (`.github/workflows/release.yml`) builds all of them on a
+push to `prod` with a new version, renames them after the system they are for
+(for example `gnirehtet-gui-0.1.0-macos-intel.dmg`) and publishes everything but
+the bare `.app`.
 
 Installed layout on Linux:
 

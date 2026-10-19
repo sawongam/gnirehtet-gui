@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Release files are named after the system they are for, such as
+  `gnirehtet-gui-<version>-windows-x64-setup.exe` and
+  `gnirehtet-gui-<version>-macos-apple-silicon.dmg`, and the release notes start
+  with a Downloads table.
+- Windows is shipped as the `-setup.exe` installer only; the `.msi` and the
+  macOS `.app.tar.gz` archives are no longer published. Checksums are in
+  `SHA256SUMS.txt`.
+
 ## [0.1.0]
 
 First public release.

@@ -51,19 +51,20 @@ compiles it from that copy instead of downloading it.
 
 ## Install
 
-Download the installer for your system from the
-[Releases](https://github.com/sawongam/gnirehtet-gui/releases) page:
+Download the file for your system from the
+[latest release](https://github.com/sawongam/gnirehtet-gui/releases/latest):
 
-| System | File |
-|--------|------|
-| Debian, Ubuntu | `.deb` |
-| Fedora, openSUSE | `.rpm` |
-| Other Linux | `.AppImage` |
-| Windows | `.msi` or `-setup.exe` |
-| macOS | `.dmg` |
+| System | File to download |
+|--------|------------------|
+| Windows 10, 11 | `gnirehtet-gui-<version>-windows-x64-setup.exe` |
+| macOS, Apple Silicon (M1 and later) | `gnirehtet-gui-<version>-macos-apple-silicon.dmg` |
+| macOS, Intel | `gnirehtet-gui-<version>-macos-intel.dmg` |
+| Debian, Ubuntu, Mint | `gnirehtet-gui-<version>-linux-x64.deb` |
+| Fedora, openSUSE | `gnirehtet-gui-<version>-linux-x64.rpm` |
+| Other Linux | `gnirehtet-gui-<version>-linux-x64.AppImage` |
 
-The app also needs **adb** (Android platform-tools). See the
-[installation guide](docs/INSTALL.md) for step-by-step instructions for each
+The app also needs **adb** (Android platform-tools). The
+[installation guide](docs/INSTALL.md) has step-by-step instructions for each
 system and for preparing the phone.
 
 ## Usage

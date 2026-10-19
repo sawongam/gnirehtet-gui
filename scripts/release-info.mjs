@@ -3,8 +3,9 @@
 // Fails if Cargo.lock is stale or a second copy of the version has crept into
 // tauri.conf.json or package.json.
 //
-// With --notes <file>, also writes the CHANGELOG.md section for that version
-// to <file>, failing if the section is missing or empty.
+// With --notes <file>, also writes the release notes to <file>: a Downloads
+// table followed by the CHANGELOG.md section for that version, failing if the
+// section is missing or empty.
 //
 // Usage: node scripts/release-info.mjs [--notes <file>]
 
@@ -42,6 +43,35 @@ function changelogSection(version) {
   return body;
 }
 
+// The Downloads table at the top of the release notes. File names must match
+// the ones the Release workflow gives the installers.
+function downloads(version, homepage) {
+  const file = (suffix) => `gnirehtet-gui-${version}-${suffix}`;
+  const macOpen =
+    "Open it and drag the app to *Applications*. The app is not notarized: the first time, right-click it and choose **Open**.";
+  const rows = [
+    ["Windows 10, 11", "windows-x64-setup.exe",
+      "Run the installer. SmartScreen warns about an unknown publisher: *More info* → *Run anyway*."],
+    ["macOS, Apple Silicon (M1 and later)", "macos-apple-silicon.dmg", macOpen],
+    ["macOS, Intel", "macos-intel.dmg", macOpen],
+    ["Debian, Ubuntu, Mint", "linux-x64.deb", `\`sudo apt install ./${file("linux-x64.deb")}\``],
+    ["Fedora, openSUSE", "linux-x64.rpm", `\`sudo dnf install ./${file("linux-x64.rpm")}\` (\`zypper install\` on openSUSE)`],
+    ["Other Linux", "linux-x64.AppImage", "Make it executable (`chmod +x`) and run it."],
+  ];
+  const guide = `${homepage}/blob/v${version}/docs/INSTALL.md`;
+  return [
+    "## Downloads",
+    "",
+    "| System | File | How to install |",
+    "| --- | --- | --- |",
+    ...rows.map(([system, suffix, how]) => `| ${system} | \`${file(suffix)}\` | ${how} |`),
+    "",
+    `The app also needs **adb** (Android platform-tools) on the computer and USB debugging on the phone. The [installation guide](${guide}) covers both.`,
+    "",
+    "Verify a download against `SHA256SUMS.txt`.",
+  ].join("\n");
+}
+
 function main() {
   const argv = process.argv.slice(2);
   let notes = null;
@@ -61,7 +91,7 @@ function main() {
 
   if (notes) {
     const body = changelogSection(version);
-    writeFileSync(notes, `${body}\n\nInstallation steps: [docs/INSTALL.md](${homepage}/blob/v${version}/docs/INSTALL.md)\n`);
+    writeFileSync(notes, `${downloads(version, homepage)}\n\n## What's changed\n\n${body}\n`);
   }
   console.log(version);
 }

@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["deb", "rpm", "appimage", "nsis", "app", "dmg"],
     "category": "Utility",
     "shortDescription": "Reverse tethering for Android over USB",
     "longDescription": "Share your computer's internet connection with an Android device over USB, without root. A desktop front-end for Genymobile's gnirehtet.",

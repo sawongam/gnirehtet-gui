@@ -20,7 +20,7 @@ Download the file for your system from the
 ### Debian, Ubuntu, Linux Mint, Pop!_OS
 
 ```bash
-sudo apt install ./gnirehtet-gui_*_amd64.deb
+sudo apt install ./gnirehtet-gui-*-linux-x64.deb
 ```
 
 `apt` also installs `adb`, which the package recommends. Launch **Gnirehtet**
@@ -31,15 +31,15 @@ To remove it: `sudo apt remove gnirehtet-gui`.
 ### Fedora, openSUSE, RHEL
 
 ```bash
-sudo dnf install ./gnirehtet-gui-*.x86_64.rpm       # Fedora / RHEL
-sudo zypper install ./gnirehtet-gui-*.x86_64.rpm    # openSUSE
+sudo dnf install ./gnirehtet-gui-*-linux-x64.rpm       # Fedora / RHEL
+sudo zypper install ./gnirehtet-gui-*-linux-x64.rpm    # openSUSE
 ```
 
 ### Other Linux distributions (AppImage)
 
 ```bash
-chmod +x gnirehtet-gui_*_amd64.AppImage
-./gnirehtet-gui_*_amd64.AppImage
+chmod +x gnirehtet-gui-*-linux-x64.AppImage
+./gnirehtet-gui-*-linux-x64.AppImage
 ```
 
 If the AppImage does not start and mentions FUSE, install your distribution's
@@ -49,7 +49,7 @@ On Arch Linux you can also build from source (see [DEVELOPMENT.md](DEVELOPMENT.m
 
 ### Windows 10 and 11
 
-Run `gnirehtet-gui_*_x64-setup.exe` (or the `.msi`). The app uses Microsoft Edge
+Run `gnirehtet-gui-<version>-windows-x64-setup.exe`. The app uses Microsoft Edge
 WebView2, which Windows 10 and 11 normally already have; if it is missing, the
 installer downloads it.
 
@@ -58,8 +58,9 @@ PC*, click **More info → Run anyway**.
 
 ### macOS 10.15 or newer
 
-Open the `.dmg` and drag **gnirehtet-gui** to *Applications*. Pick
-`aarch64` for Apple Silicon (M1 and later) and `x64` for Intel Macs.
+Download `gnirehtet-gui-<version>-macos-apple-silicon.dmg` for Apple Silicon
+(M1 and later) or `gnirehtet-gui-<version>-macos-intel.dmg` for Intel Macs.
+Open it and drag **gnirehtet-gui** to *Applications*.
 
 The app is not notarized. The first time, right-click it and choose **Open**, or
 run:
