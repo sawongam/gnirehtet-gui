@@ -130,19 +130,23 @@ build`. This does not affect the `.deb` and `.rpm`, and CI builds on Ubuntu
 
 ## Releasing
 
-1. Update the version in all three places:
-   - `apps/desktop/src-tauri/tauri.conf.json`
-   - `apps/desktop/src-tauri/Cargo.toml`
-   - `apps/desktop/package.json`
-2. Move the *Unreleased* entries in `CHANGELOG.md` under the new version.
-3. Commit, then tag and push:
-   ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
-   ```
-4. The **Release** workflow builds Linux, Windows and macOS installers and
-   attaches them to a draft GitHub release. Test the installers, then publish
-   the draft.
+Pull requests run the **CI** workflow. Every push to `prod` runs CI again and
+then the **Release** workflow, which publishes a release only when the app
+version has no `v<version>` tag yet. To release:
+
+1. In a pull request, bump `version` under `[workspace.package]` in the root
+   `Cargo.toml`, then run `cargo check` to update `Cargo.lock`. That is the
+   only copy: the crates inherit it, and Tauri reads it when
+   `tauri.conf.json` has no `version`.
+2. Move the *Unreleased* entries in `CHANGELOG.md` under a new
+   `## [x.y.z]` heading. That section becomes the release notes.
+3. Run the manual test checklist, then merge.
+
+`node scripts/release-info.mjs` checks steps 1 and 2 locally. CI runs the same
+check. After the merge, the Release workflow builds the Linux, Windows and
+macOS installers, checks they are all present, attaches `SHA256SUMS`, creates
+the tag and publishes the release. If a build fails, fix it and merge again,
+or re-run the workflow. The leftover draft is replaced.
 
 ## Updating gnirehtet
 

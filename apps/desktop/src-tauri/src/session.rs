@@ -549,7 +549,7 @@ mod tests {
             let port = self.port;
             self._listener = Some(thread::spawn(move || {
                 thread::sleep(Duration::from_millis(100));
-                let listener = TcpListener::bind(("127.0.0.1", port)).unwrap();
+                let listener = bind_retrying(port);
                 thread::sleep(hold);
                 drop(listener);
             }));
@@ -568,6 +568,22 @@ mod tests {
                 port: Some(self.port),
                 dns_servers: dns.map(String::from),
                 routes: None,
+            }
+        }
+    }
+
+    /// Bind `port`, retrying while the supervisor's readiness probe briefly
+    /// holds it (the probe binds the same port every few milliseconds).
+    fn bind_retrying(port: u16) -> TcpListener {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            match TcpListener::bind(("127.0.0.1", port)) {
+                Ok(listener) => return listener,
+                Err(err) if Instant::now() < deadline => {
+                    assert_eq!(err.kind(), std::io::ErrorKind::AddrInUse, "{err}");
+                    thread::sleep(Duration::from_millis(1));
+                }
+                Err(err) => panic!("bind {port}: {err}"),
             }
         }
     }

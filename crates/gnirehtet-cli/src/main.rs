@@ -16,18 +16,13 @@
  * Modified for gnirehtet-gui: uses the gnirehtet-adb crate for ADB commands.
  */
 
-extern crate chrono;
-extern crate ctrlc;
-#[macro_use]
-extern crate log;
-extern crate gnirehtet_adb as adb;
-extern crate relaylib;
-
 mod cli_args;
 mod logger;
 
 use crate::cli_args::CommandLineArguments;
 use adb::{AdbClient, CommandExecutionError, VpnOptions};
+use gnirehtet_adb as adb;
+use log::{error, info};
 use std::env;
 use std::process::exit;
 use std::thread;
