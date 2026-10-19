@@ -167,6 +167,10 @@ input {
 }
 
 button {
+  cursor: pointer;
+}
+button:disabled,
+.segmented button[aria-checked="true"] {
   cursor: default;
 }
 

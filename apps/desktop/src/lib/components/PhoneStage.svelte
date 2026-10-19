@@ -24,6 +24,10 @@
 
   const present = $derived(scene !== "absent");
   const plugged = $derived(scene !== "absent" && scene !== "interrupted");
+  // One period of a traffic curve, repeated twice so it can scroll seamlessly.
+  const WAVE = "C4 22 8 20 14 18 S22 4 28 10 S36 24 44 20 S52 16 58 18 S66 2 74 8 S84 26 92 20 S96 22 100 22";
+  const TRAFFIC = `M0 22 ${WAVE} ${WAVE.replace(/(\d+) (\d+)/g, (_, x, y) => `${+x + 100} ${y}`)}`;
+
   const flowing = $derived(scene === "connected" || scene === "starting");
   const vpn = $derived(scene === "connected" || scene === "waiting" || scene === "interrupted" || scene === "failed");
   const halo = $derived(
@@ -63,9 +67,27 @@
               <div class="loader"><span></span></div>
             {:else if scene === "connected"}
               <div class="online">
-                <span class="ring"></span>
-                <span class="ring late"></span>
-                <span class="online-label">Online</span>
+                <div class="badge">
+                  <svg viewBox="0 0 24 24"><path d="M6.5 12.5l3.7 3.6 7.3-8" /></svg>
+                </div>
+                <p class="online-title">Connected</p>
+                <p class="online-sub">Internet via USB</p>
+              </div>
+              <!-- Like Android's ongoing VPN notification, with live traffic. -->
+              <div class="traffic">
+                <div class="traffic-head"><span>Gnirehtet</span><span class="live">Live</span></div>
+                <svg class="graph" viewBox="0 0 100 32" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="traffic-fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stop-color="currentColor" stop-opacity="0.35" />
+                      <stop offset="1" stop-color="currentColor" stop-opacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <g class="graph-scroll">
+                    <path class="area" d="{TRAFFIC} L200 32 L0 32 Z" fill="url(#traffic-fill)" />
+                    <path class="line" d={TRAFFIC} />
+                  </g>
+                </svg>
               </div>
             {:else if scene === "failed"}
               <p class="note danger">No internet</p>
@@ -107,42 +129,66 @@
 
   /* ---------- Halo ---------- */
 
+  /* A soft radial wash, not a blurred disc: no filter, so it composites
+     cheaply, and the tint lives in the gradient stops so it fades out
+     smoothly instead of ending in a visible rim. */
+  @property --halo {
+    syntax: "<color>";
+    inherits: false;
+    initial-value: transparent;
+  }
   .halo {
+    --halo: transparent;
+    --strength: 28%;
     position: absolute;
     top: calc(12px + var(--phone-h) / 2);
     left: 50%;
-    width: calc(var(--phone-w) * 2.6);
+    width: calc(var(--phone-w) * 3.6);
     aspect-ratio: 1;
-    border-radius: 50%;
     translate: -50% -50%;
     opacity: 0;
-    scale: 0.8;
+    scale: 0.85;
+    pointer-events: none;
+    /* Bell-shaped falloff: many stops so no ring shows where two meet. */
+    background: radial-gradient(
+      closest-side,
+      color-mix(in oklab, var(--halo) var(--strength), transparent) 0%,
+      color-mix(in oklab, var(--halo) calc(var(--strength) * 0.93), transparent) 15%,
+      color-mix(in oklab, var(--halo) calc(var(--strength) * 0.76), transparent) 30%,
+      color-mix(in oklab, var(--halo) calc(var(--strength) * 0.54), transparent) 45%,
+      color-mix(in oklab, var(--halo) calc(var(--strength) * 0.34), transparent) 60%,
+      color-mix(in oklab, var(--halo) calc(var(--strength) * 0.17), transparent) 75%,
+      color-mix(in oklab, var(--halo) calc(var(--strength) * 0.06), transparent) 88%,
+      transparent 100%
+    );
+    will-change: opacity, scale;
     transition:
-      opacity 600ms var(--ease),
-      scale 900ms var(--ease),
-      background-color 600ms var(--ease);
-    filter: blur(28px);
+      --halo 700ms var(--ease),
+      opacity 700ms var(--ease),
+      scale 900ms var(--ease);
+  }
+  .halo.success,
+  .halo.warning,
+  .halo.danger {
+    opacity: 1;
   }
   .halo.success {
-    background: var(--success-dot);
-    opacity: 0.22;
+    --halo: var(--success-dot);
     scale: 1;
-    animation: breathe 4s ease-in-out infinite;
+    animation: breathe 5s ease-in-out infinite;
   }
   .halo.warning {
-    background: var(--warning-dot);
-    opacity: 0.18;
-    scale: 0.92;
+    --halo: var(--warning-dot);
+    scale: 0.94;
   }
   .halo.danger {
-    background: var(--danger-dot);
-    opacity: 0.14;
-    scale: 0.9;
+    --halo: var(--danger-dot);
+    --strength: 20%;
+    scale: 0.92;
   }
   @keyframes breathe {
     50% {
-      scale: 1.08;
-      opacity: 0.3;
+      scale: 1.06;
     }
   }
 
@@ -380,39 +426,158 @@
   }
 
   .online {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: auto;
+  }
+  .badge {
     position: relative;
     display: grid;
     place-items: center;
-    width: 100%;
+    width: calc(var(--phone-w) * 0.28);
     aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--success-dot);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--success-dot) 45%, transparent);
+    animation: pop 600ms var(--spring) both 150ms;
   }
-  .ring {
+  /* A single soft pulse every few seconds, rather than constant ripples. */
+  .badge::after {
+    content: "";
     position: absolute;
-    width: 30%;
-    aspect-ratio: 1;
+    inset: 0;
     border-radius: 50%;
     border: 1.5px solid var(--success-dot);
     opacity: 0;
-    animation: ripple 2.6s var(--ease) infinite;
+    animation: pulse 3.2s var(--ease) infinite 1.2s;
   }
-  .ring.late {
-    animation-delay: 1.3s;
+  .badge svg {
+    width: 55%;
+    height: 55%;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 20;
+    stroke-dashoffset: 20;
+    animation: draw 420ms var(--ease) forwards 520ms;
   }
-  .online-label {
-    position: relative;
-    font-size: 10px;
+  .online-title {
+    margin-top: 9px;
+    font-size: 11px;
     font-weight: 800;
-    letter-spacing: 0.02em;
-    color: var(--success);
+    color: var(--screen-fg);
+    animation: rise 480ms var(--ease) both 380ms;
   }
-  @keyframes ripple {
-    0% {
-      opacity: 0.9;
-      scale: 0.6;
+  .online-sub {
+    margin-top: 1px;
+    font-size: 8px;
+    font-weight: 600;
+    color: var(--success);
+    animation: rise 480ms var(--ease) both 460ms;
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      scale: 0.4;
     }
+  }
+  @keyframes draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes pulse {
+    0% {
+      opacity: 0.7;
+      scale: 1;
+    }
+    55%,
     100% {
       opacity: 0;
-      scale: 2.6;
+      scale: 1.9;
+    }
+  }
+
+  .traffic {
+    align-self: stretch;
+    margin-top: auto;
+    margin-bottom: 4px;
+    padding: 7px 8px 6px;
+    border-radius: 9px;
+    background: var(--screen-card);
+    box-shadow: 0 1px 3px rgb(0 0 6 / 0.08);
+    animation: rise 520ms var(--spring) both 600ms;
+  }
+  .traffic-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 7.5px;
+    font-weight: 800;
+    color: var(--screen-fg);
+  }
+  .live {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-weight: 700;
+    color: var(--success);
+  }
+  .live::before {
+    content: "";
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--success-dot);
+    animation: blink 1.6s ease-in-out infinite;
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0.25;
+    }
+  }
+  .graph {
+    display: block;
+    width: 100%;
+    height: 24px;
+    margin-top: 5px;
+    overflow: hidden;
+    color: var(--success-dot);
+  }
+  .graph-scroll {
+    animation: scroll 5s linear infinite;
+  }
+  .graph .line {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+  /* On a short window the phone shrinks: keep only the essentials. */
+  @container (max-height: 640px) {
+    .online-sub,
+    .traffic-head span:first-child {
+      display: none;
+    }
+    .online-title {
+      margin-top: 6px;
+    }
+    .traffic {
+      padding: 5px 6px 4px;
+    }
+    .graph {
+      height: 16px;
+      margin-top: 3px;
+    }
+  }
+
+  @keyframes scroll {
+    to {
+      translate: -100px 0;
     }
   }
 

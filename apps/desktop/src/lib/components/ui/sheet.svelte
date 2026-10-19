@@ -33,7 +33,7 @@
   <div
     class="scrim"
     role="presentation"
-    transition:fade={{ duration: 180 }}
+    out:fade={{ duration: 160 }}
     onclick={(e) => {
       if (e.target === e.currentTarget) open = false;
     }}
@@ -45,7 +45,7 @@
       aria-modal="true"
       aria-label={title}
       tabindex="-1"
-      transition:fly={{ x: 48, duration: 260, easing: cubicOut, opacity: 0 }}
+      out:fly={{ x: 48, duration: 200, easing: cubicOut, opacity: 0 }}
     >
       <div class="bar">
         <h2>{title}</h2>
@@ -67,6 +67,8 @@
     justify-content: flex-end;
     padding: 8px;
     background: var(--scrim);
+    animation: scrim-in 180ms ease-out;
+    will-change: opacity;
   }
 
   .panel {
@@ -81,6 +83,23 @@
       0 16px 48px rgb(0 0 6 / 0.28);
     overflow: hidden;
     outline: none;
+    animation: panel-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, opacity;
+  }
+
+  /* The intro is a CSS animation rather than a Svelte transition: it applies
+     from the very first frame, so the scrim never flashes in at full
+     strength before fading (seen in WebKitGTK). */
+  @keyframes scrim-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes panel-in {
+    from {
+      opacity: 0;
+      translate: 48px 0;
+    }
   }
 
   .bar {
