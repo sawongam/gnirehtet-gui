@@ -28,38 +28,58 @@
     },
   ];
 
-  const details = [
+  // Each detail shows a small piece of the app, in its own words.
+  type Sample =
+    | { status: [string, string] }
+    | { cycle: [string, string][] }
+    | { row: [string, string] }
+    | { log: [string, "info" | "error", string][] };
+
+  const details: { title: string; text: string; sample: Sample }[] = [
     {
       title: "Explains what the phone needs",
       text: "Unauthorized, offline, or blocked by Linux udev permissions: the app says what's wrong and what to do.",
+      sample: { status: ["Allow USB debugging", "Unlock the phone and accept the prompt."] },
     },
     {
       title: "Shows each state as it happens",
       text: "Starting, waiting for the VPN prompt, connected, interrupted.",
+      sample: {
+        cycle: [
+          ["Starting", "Starting the relay and the client."],
+          ["Accept on your phone", "Tap OK on the connection request."],
+          ["Connected", "Pixel 8 is using this computer’s internet."],
+        ],
+      },
     },
     {
       title: "Recovers from a pulled cable",
       text: "Plug it back in and the USB tunnel is restored without a click.",
+      sample: { status: ["Cable unplugged", "Plug it back in and it resumes by itself."] },
     },
     {
       title: "Leaves nothing running",
       text: "Disconnecting or quitting stops the VPN on the phone and the relay on the computer.",
+      sample: { status: ["Disconnecting", "Turning off the VPN on Pixel 8."] },
     },
     {
       title: "Preferences when you need them",
-      text: "Custom DNS servers, routes and relay port.",
+      text: "Custom DNS servers, routes and relay port. Light, dark, or follow your system.",
+      sample: { row: ["DNS servers", "1.1.1.1, 9.9.9.9"] },
     },
     {
       title: "A log for troubleshooting",
       text: "Every relay and adb step, with errors flagged.",
-    },
-    {
-      title: "Light and dark",
-      text: "Follows your system, or pick one.",
+      sample: {
+        log: [
+          ["12:04:31", "info", "adb reverse tcp:31416"],
+          ["12:04:33", "error", "device unauthorized"],
+        ],
+      },
     },
   ];
 
-  const TITLE = "Gnirehtet: your computer's internet on your Android phone, over USB";
+  const TITLE = "Gnirehtet GUI: your computer's internet on your Android phone, over USB";
   const DESCRIPTION =
     "A desktop app for reverse tethering. Plug in an Android phone, click Connect, and it uses your computer's internet. No root, for Windows, macOS and Linux.";
 </script>
@@ -67,7 +87,7 @@
 <svelte:head>
   <title>{TITLE}</title>
   <meta name="description" content={DESCRIPTION} />
-  <meta property="og:title" content="Gnirehtet" />
+  <meta property="og:title" content="Gnirehtet GUI" />
   <meta property="og:description" content={DESCRIPTION} />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="https://gnirehtet.sangamadhikari.com/og.png" />
@@ -80,6 +100,7 @@
   <section class="hero">
     <div class="wrap intro">
       <a class="release" href={release.url}>Version {release.version} is out</a>
+      <p class="name">Gnirehtet GUI</p>
       <h1>Your computer's internet, on your Android phone.</h1>
       <p class="lede">
         Plug the phone in with a USB cable and click Connect. It works without root, and there's nothing to set up
@@ -118,18 +139,35 @@
           gnirehtet is a command-line tool. This app runs it for you, watches the phone, and tidies up afterwards.
         </p>
       </header>
-      <div class="lists">
-        <ul class="boxed-list" use:reveal={60}>
-          {#each details.slice(0, 4) as d (d.title)}
-            <li><span class="row-title">{d.title}</span><span class="row-sub">{d.text}</span></li>
-          {/each}
-        </ul>
-        <ul class="boxed-list" use:reveal={140}>
-          {#each details.slice(4) as d (d.title)}
-            <li><span class="row-title">{d.title}</span><span class="row-sub">{d.text}</span></li>
-          {/each}
-        </ul>
-      </div>
+      <ul class="tiles">
+        {#each details as d, i (d.title)}
+          <li use:reveal={(i % 3) * 70}>
+            <div class="sample" aria-hidden="true">
+              {#if "status" in d.sample}
+                <span class="status-title">{d.sample.status[0]}</span>
+                <span class="status-detail">{d.sample.status[1]}</span>
+              {:else if "cycle" in d.sample}
+                <span class="cycle">
+                  {#each d.sample.cycle as [title, detail], j (title)}
+                    <span style:--i={j} style:--n={d.sample.cycle.length}>
+                      <span class="status-title">{title}</span>
+                      <span class="status-detail">{detail}</span>
+                    </span>
+                  {/each}
+                </span>
+              {:else if "row" in d.sample}
+                <span class="row"><span>{d.sample.row[0]}</span><span>{d.sample.row[1]}</span></span>
+              {:else}
+                {#each d.sample.log as [time, level, text] (time)}
+                  <code class={level}><span>{time}</span>{text}</code>
+                {/each}
+              {/if}
+            </div>
+            <h3>{d.title}</h3>
+            <p>{d.text}</p>
+          </li>
+        {/each}
+      </ul>
     </div>
   </section>
 
@@ -188,6 +226,9 @@
   .intro > :global(:nth-child(5)) {
     animation-delay: 300ms;
   }
+  .intro > :global(:nth-child(6)) {
+    animation-delay: 360ms;
+  }
   @keyframes rise {
     from {
       opacity: 0;
@@ -210,6 +251,14 @@
   }
   .release:hover {
     color: var(--fg);
+  }
+  .name {
+    margin-bottom: -10px;
+    font-family: var(--font-display);
+    font-size: clamp(20px, 2.4vw, 26px);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    color: var(--accent);
   }
   h1 {
     max-width: 14ch;
@@ -278,22 +327,118 @@
     gap: 20px;
     max-width: 700px;
   }
-  .lists {
+  .tiles {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px;
-    align-items: start;
-    margin-top: clamp(36px, 5vw, 56px);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin: clamp(36px, 5vw, 56px) 0 0;
+    padding: 0;
+    list-style: none;
   }
-  .lists li {
+  .tiles li {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    gap: 6px;
+    padding: 20px 22px 24px;
+    border-radius: 16px;
+    background: var(--raised);
+    box-shadow: var(--card-shadow);
+  }
+  .sample {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    height: 76px;
+    margin-bottom: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-control);
+    background: var(--page);
+    box-shadow: inset 0 0 0 1px var(--line);
+    overflow: hidden;
+  }
+  .status-title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .status-detail {
+    overflow: hidden;
+    font-size: 13px;
+    color: var(--fg-dim);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  /* The titles take turns, like the app's status as a connection comes up. */
+  .cycle {
+    display: grid;
+  }
+  .cycle > span {
     display: grid;
     gap: 2px;
-    padding: 16px 20px;
+    min-width: 0;
+    grid-area: 1 / 1;
+    opacity: 0;
+    animation: turn calc(var(--n) * 1.8s) var(--ease) calc(var(--i) * 1.8s) infinite;
   }
-  .row-title {
+  @keyframes turn {
+    0% {
+      opacity: 0;
+      translate: 0 6px;
+    }
+    6%,
+    28% {
+      opacity: 1;
+      translate: 0 0;
+    }
+    34%,
+    100% {
+      opacity: 0;
+      translate: 0 -6px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cycle > span {
+      animation: none;
+    }
+    .cycle > span:last-child {
+      opacity: 1;
+    }
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: var(--radius-control);
+    font-size: 14px;
+    background: var(--raised);
+    box-shadow: var(--card-shadow);
+  }
+  .row > span:last-child {
+    color: var(--fg-dim);
+  }
+  .sample code {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--fg-dim);
+    white-space: nowrap;
+  }
+  .sample code span {
+    margin-right: 10px;
+    color: var(--fg-faint);
+  }
+  .sample code.error {
+    color: var(--error);
+  }
+
+  .tiles h3 {
+    font-family: var(--font-ui);
+    font-size: 16.5px;
     font-weight: 650;
+    letter-spacing: 0;
   }
-  .row-sub {
+  .tiles p {
     font-size: 15px;
     color: var(--fg-dim);
   }
@@ -343,9 +488,14 @@
     color: var(--fg);
   }
 
+  @media (max-width: 960px) {
+    .tiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
   @media (max-width: 760px) {
     .uses li,
-    .lists {
+    .tiles {
       grid-template-columns: 1fr;
     }
   }

@@ -27,12 +27,13 @@
   --success: #007c3d;
   --success-dot: #26a269;
   --warning-dot: #e5a50a;
+  --error: #c01c28;
 
   --titlebar: #ebebed;
   --titlebar-fg: rgb(0 0 6 / 0.8);
 
   --wallpaper: radial-gradient(70% 60% at 15% 100%, #a9c9f5 0%, transparent 70%),
-    radial-gradient(60% 55% at 100% 0%, #d6c8f2 0%, transparent 70%), #eef1f7;
+    radial-gradient(60% 55% at 100% 0%, #d3e3f8 0%, transparent 70%), #eef1f7;
   /* Calmer, for the smaller How it works card: the wallpaper's corners crowd it. */
   --diagram: radial-gradient(130% 110% at 0% 100%, rgb(169 201 245 / 0.5), transparent 65%), #eff2f8;
   --cable: #b9bac2;
@@ -72,12 +73,13 @@
   --accent-ring: rgb(120 174 237 / 0.5);
   --success: #78e9ab;
   --success-dot: #2ec27e;
+  --error: #ff938c;
 
   --titlebar: #2e2e32;
   --titlebar-fg: rgb(255 255 255 / 0.85);
 
   --wallpaper: radial-gradient(70% 60% at 15% 100%, #1f4a86 0%, transparent 70%),
-    radial-gradient(60% 55% at 100% 0%, #3d2f66 0%, transparent 70%), #1b1d26;
+    radial-gradient(60% 55% at 100% 0%, #22385c 0%, transparent 70%), #1b1d26;
   --diagram: radial-gradient(130% 110% at 0% 100%, rgb(31 74 134 / 0.45), transparent 65%), #1b1d26;
   --cable: #4a4a52;
   --device: #0e0e11;

@@ -12,7 +12,7 @@
   <div class="wrap bar">
     <a class="brand" href="{base}/">
       <img src="{base}/icon.svg" alt="" width="28" height="28" />
-      <span>Gnirehtet</span>
+      <span>Gnirehtet GUI</span>
     </a>
     <div class="links">
       <a class="hide-sm" href="#how">How it works</a>
