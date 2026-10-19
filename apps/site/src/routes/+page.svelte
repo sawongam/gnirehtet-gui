@@ -6,7 +6,8 @@
   import HowItWorks from "$lib/components/HowItWorks.svelte";
   import Downloads from "$lib/components/Downloads.svelte";
   import { reveal } from "$lib/reveal";
-  import { DOCS, REPO, UPSTREAM, VERSION } from "$lib/site";
+  import { DOCS, REPO, UPSTREAM } from "$lib/site";
+  import { release } from "$lib/release.svelte";
 
   const uses = [
     {
@@ -78,9 +79,7 @@
 <main>
   <section class="hero">
     <div class="wrap intro">
-      <a class="release" href="{REPO}/releases/tag/v{VERSION}">
-        <span class="pill">New</span> Version {VERSION} is out
-      </a>
+      <a class="release" href={release.url}>Version {release.version} is out</a>
       <h1>Your computer's internet, on your Android phone.</h1>
       <p class="lede">
         Plug the phone in with a USB cable and click Connect. It works without root, and there's nothing to set up
@@ -199,8 +198,7 @@
   .release {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 4px 14px 4px 4px;
+    padding: 6px 16px;
     border-radius: 999px;
     font-size: 14px;
     font-weight: 600;
@@ -213,15 +211,6 @@
   .release:hover {
     color: var(--fg);
   }
-  .pill {
-    padding: 2px 10px;
-    border-radius: 999px;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: #fff;
-    background: var(--accent-bg);
-  }
-
   h1 {
     max-width: 14ch;
     font-size: clamp(42px, 7.2vw, 84px);

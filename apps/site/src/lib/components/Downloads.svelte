@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { reveal } from "$lib/reveal";
-  import { DOCS, DOWNLOADS, RELEASES, VERSION, detectOs, fileName, fileUrl, type Os } from "$lib/site";
+  import { DOCS, DOWNLOADS, RELEASES, detectOs, type Os } from "$lib/site";
+  import { release } from "$lib/release.svelte";
 
   let os = $state<Os | null>(null);
   onMount(() => (os = detectOs()));
@@ -11,7 +12,7 @@
   <div class="wrap grid">
     <header>
       <p class="eyebrow" use:reveal>Download</p>
-      <h2 class="section-title" use:reveal={60}>Version {VERSION}</h2>
+      <h2 class="section-title" use:reveal={60}>Version {release.version}</h2>
       <p class="lede" use:reveal={120}>
         Free and open source. The relay and the Android client are built in, so this is the only thing to download.
       </p>
@@ -40,9 +41,9 @@
               {#if d.os === os}<span class="tag">Your system</span>{/if}
             </span>
             <span class="detail">{d.detail}</span>
-            <span class="name mono">{fileName(d)}</span>
+            <span class="name mono">{release.fileName(d)}</span>
           </div>
-          <a class="btn small" class:suggested={d.os === os} href={fileUrl(d)} aria-label="Download {fileName(d)}">
+          <a class="btn small" class:suggested={d.os === os} href={release.fileUrl(d)} aria-label="Download {release.fileName(d)}">
             Download
           </a>
         </li>

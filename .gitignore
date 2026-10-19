@@ -19,3 +19,7 @@ apps/desktop/src-tauri/binaries/gnirehtet-*
 !apps/desktop/src-tauri/binaries/README.md
 !apps/desktop/src-tauri/binaries/.gitkeep
 .vite/
+
+# Landing site: the desktop UI built for its live demo
+apps/desktop/build-demo/
+apps/site/static/demo/

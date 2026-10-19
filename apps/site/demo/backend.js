@@ -38,6 +38,8 @@
   const demo = (window.__demo = {
     /** unplugged | unauthorized | ready | starting | waiting | connected */
     stage: "unplugged",
+    /** Set by the page: the version the About panel shows. */
+    version: "",
     devices: [],
     relay: STOPPED,
     /** Set by the page: called with the stage after every change. */
@@ -157,7 +159,7 @@
           return null;
         case "get_environment":
           return {
-            appVersion: params.get("version") ?? "",
+            appVersion: demo.version,
             adbPath: "/usr/bin/adb",
             relayPath: "gnirehtet",
             relayFound: true,

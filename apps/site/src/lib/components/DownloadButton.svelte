@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { DOWNLOADS, OS_NAMES, detectOs, fileUrl, type Os } from "$lib/site";
+  import { DOWNLOADS, OS_NAMES, detectOs, type Os } from "$lib/site";
+  import { release } from "$lib/release.svelte";
 
   let os = $state<Os | null>(null);
   onMount(() => (os = detectOs()));
@@ -13,7 +14,7 @@
 
 <div class="cta">
   {#if os && primary && os !== "mac"}
-    <a class="btn suggested big" href={fileUrl(primary)}>Download for {OS_NAMES[os]}</a>
+    <a class="btn suggested big" href={release.fileUrl(primary)}>Download for {OS_NAMES[os]}</a>
     <a class="btn flat big" href="#download">Other systems</a>
   {:else if os === "mac"}
     <a class="btn suggested big" href="#download">Download for macOS</a>

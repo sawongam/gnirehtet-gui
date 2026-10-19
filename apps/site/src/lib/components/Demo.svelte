@@ -3,11 +3,12 @@
   import { base } from "$app/paths";
   import { theme } from "$lib/theme.svelte";
   import { inview } from "$lib/reveal";
-  import { VERSION } from "$lib/site";
+  import { release } from "$lib/release.svelte";
 
   type Stage = "unplugged" | "unauthorized" | "ready" | "starting" | "waiting" | "connected";
   type Demo = {
     stage: Stage;
+    version: string;
     onstage: ((stage: Stage) => void) | null;
     onvisitor: (() => void) | null;
     plug(): void;
@@ -143,8 +144,13 @@
     frame.addEventListener("load", onLoad);
     // Set here, not in markup, so the app starts in the page's theme and a
     // later theme switch does not reload it.
-    frameSrc = `${base}/demo/?version=${VERSION}${theme.dark ? "&theme=dark" : ""}`;
+    frameSrc = `${base}/demo/${theme.dark ? "?theme=dark" : ""}`;
     return () => frame.removeEventListener("load", onLoad);
+  });
+
+  // The app's About shows the release the page names, once it's known.
+  $effect(() => {
+    if (demo) demo.version = release.version;
   });
 
   // Follow the page's theme without reloading the app.
