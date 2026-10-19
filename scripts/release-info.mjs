@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-// Checks that every place holding the app version agrees, and prints it.
-//   apps/desktop/src-tauri/tauri.conf.json
-//   apps/desktop/src-tauri/Cargo.toml (and its Cargo.lock entry)
-//   apps/desktop/package.json (and package-lock.json)
+// Prints the app version: [workspace.package] version in the root Cargo.toml.
+// Fails if Cargo.lock is stale or a second copy of the version has crept into
+// tauri.conf.json or package.json.
 //
 // With --notes <file>, also writes the CHANGELOG.md section for that version
 // to <file>, failing if the section is missing or empty.
@@ -18,8 +17,8 @@ const read = (path) => readFileSync(join(ROOT, path), "utf8");
 const json = (path) => JSON.parse(read(path));
 
 function cargoVersion() {
-  const match = read("apps/desktop/src-tauri/Cargo.toml").match(/^\[package\][^[]*?^version\s*=\s*"([^"]+)"/ms);
-  if (!match) throw new Error("No [package] version in apps/desktop/src-tauri/Cargo.toml");
+  const match = read("Cargo.toml").match(/^\[workspace\.package\][^[]*?^version\s*=\s*"([^"]+)"/ms);
+  if (!match) throw new Error("No [workspace.package] version in Cargo.toml");
   return match[1];
 }
 
@@ -51,20 +50,14 @@ function main() {
     else throw new Error(`Unknown argument: ${argv[i]}`);
   }
 
-  const sources = {
-    "tauri.conf.json": json("apps/desktop/src-tauri/tauri.conf.json").version,
-    "Cargo.toml": cargoVersion(),
-    "Cargo.lock": cargoLockVersion(),
-    "package.json": json("apps/desktop/package.json").version,
-    "package-lock.json": json("apps/desktop/package-lock.json").version,
-  };
-  const versions = new Set(Object.values(sources));
-  if (versions.size !== 1) {
-    const list = Object.entries(sources).map(([file, v]) => `  ${file}: ${v}`).join("\n");
-    throw new Error(`Version mismatch:\n${list}`);
+  const version = cargoVersion();
+  const lock = cargoLockVersion();
+  if (lock !== version) throw new Error(`Cargo.lock has ${lock}, Cargo.toml has ${version}. Run cargo check.`);
+  const tauri = json("apps/desktop/src-tauri/tauri.conf.json");
+  for (const [file, data] of [["tauri.conf.json", tauri], ["package.json", json("apps/desktop/package.json")]]) {
+    if ("version" in data) throw new Error(`Remove "version" from ${file}; the root Cargo.toml holds it.`);
   }
-  const [version] = versions;
-  const homepage = json("apps/desktop/src-tauri/tauri.conf.json").bundle.homepage;
+  const homepage = tauri.bundle.homepage;
 
   if (notes) {
     const body = changelogSection(version);

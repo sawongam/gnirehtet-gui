@@ -134,12 +134,10 @@ Pull requests run the **CI** workflow. Every push to `prod` runs CI again and
 then the **Release** workflow, which publishes a release only when the app
 version has no `v<version>` tag yet. To release:
 
-1. In a pull request, bump the version everywhere it appears:
-   - `apps/desktop/src-tauri/tauri.conf.json`
-   - `apps/desktop/src-tauri/Cargo.toml` (run `cargo check` to update
-     `Cargo.lock`)
-   - `apps/desktop/package.json` (run `npm install` to update
-     `package-lock.json`)
+1. In a pull request, bump `version` under `[workspace.package]` in the root
+   `Cargo.toml`, then run `cargo check` to update `Cargo.lock`. That is the
+   only copy: the crates inherit it, and Tauri reads it when
+   `tauri.conf.json` has no `version`.
 2. Move the *Unreleased* entries in `CHANGELOG.md` under a new
    `## [x.y.z]` heading. That section becomes the release notes.
 3. Run the manual test checklist, then merge.

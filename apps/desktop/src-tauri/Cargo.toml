@@ -1,6 +1,6 @@
 [package]
 name = "gnirehtet-desktop"
-version = "0.1.0"
+version.workspace = true
 description = "Desktop app for gnirehtet reverse tethering"
 authors = ["Sangam Adhikari <sangamadhikari.61@gmail.com>"]
 edition.workspace = true

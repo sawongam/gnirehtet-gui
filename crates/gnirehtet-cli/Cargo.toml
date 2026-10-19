@@ -1,6 +1,6 @@
 [package]
 name = "gnirehtet-cli"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "gnirehtet command-line tool (relay + adb client), built from the vendored v2.5.1 sources"
