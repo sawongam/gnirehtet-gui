@@ -68,7 +68,6 @@
     padding: 8px;
     background: var(--scrim);
     animation: scrim-in 180ms ease-out;
-    will-change: opacity;
   }
 
   .panel {
@@ -84,15 +83,14 @@
     overflow: hidden;
     outline: none;
     animation: panel-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: transform, opacity;
   }
 
-  /* The intro is a CSS animation rather than a Svelte transition: it applies
-     from the very first frame, so the scrim never flashes in at full
-     strength before fading (seen in WebKitGTK). */
+  /* CSS intros apply from the very first frame. The scrim fades its colour,
+     not its opacity: an opacity animation ending makes WebKitGTK drop the
+     overlay for a frame. */
   @keyframes scrim-in {
     from {
-      opacity: 0;
+      background-color: transparent;
     }
   }
   @keyframes panel-in {

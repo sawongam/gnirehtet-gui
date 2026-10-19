@@ -43,7 +43,9 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../../../resources/gnirehtet.apk": "gnirehtet.apk"
+      "../../../resources/gnirehtet.apk": "gnirehtet.apk",
+      "../../../LICENSE": "LICENSE",
+      "../../../NOTICE": "NOTICE"
     },
     "externalBin": [
       "binaries/gnirehtet-relay"

@@ -45,7 +45,7 @@
 
 <div class="window">
   <HeaderBar bind:panel />
-  <main>
+  <main class:covered={panel !== null || quitDialogOpen}>
     <ConnectionView />
   </main>
   <Banner onShowLog={() => (panel = "log")} />
@@ -86,5 +86,12 @@
     overflow-y: auto;
     /* The phone illustration scales with the height available here. */
     container-type: size;
+  }
+
+  /* Hold the phone's animations while an overlay covers them. In WebKitGTK,
+     running layers underneath make the overlay drop out for a frame when its
+     slide-in ends. (!important: each `animation` shorthand resets it.) */
+  main.covered :global(*) {
+    animation-play-state: paused !important;
   }
 </style>
