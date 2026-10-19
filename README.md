@@ -1,7 +1,6 @@
 # Gnirehtet GUI: reverse tethering for Android over USB
 
 [![Latest release](https://img.shields.io/github/v/release/sawongam/gnirehtet-gui)](https://github.com/sawongam/gnirehtet-gui/releases/latest)
-[![CI](https://github.com/sawongam/gnirehtet-gui/actions/workflows/ci.yml/badge.svg)](https://github.com/sawongam/gnirehtet-gui/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/sawongam/gnirehtet-gui)](LICENSE)
 
 Use your computer's internet connection on your Android phone through a USB
@@ -16,9 +15,10 @@ the Android client, setting up the adb tunnel, and cleaning up when you
 disconnect or unplug.
 
 <p align="center">
-  <img src="docs/screenshots/connected-light.png" alt="Gnirehtet connected to a phone, light theme" width="45%">
-  &nbsp;
-  <img src="docs/screenshots/connected-dark.png" alt="Gnirehtet connected to a phone, dark theme" width="45%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/flow-dark.gif">
+    <img src="docs/screenshots/flow-light.gif" alt="Plugging in a phone, allowing USB debugging, clicking Connect, accepting the VPN prompt and getting connected" width="720">
+  </picture>
 </p>
 
 It uses the unmodified gnirehtet **v2.5.1** relay and Android client; this project
@@ -46,24 +46,25 @@ compiles it from that copy instead of downloading it.
 - Restores the USB tunnel automatically when the cable is plugged back in.
 - Stops the VPN on the phone and the relay on the computer when you disconnect
   or quit.
-- Optional DNS servers, routes and relay port; light and dark themes; a log view
-  for troubleshooting.
+- Optional DNS servers, routes and relay port in Preferences; light and dark
+  themes; a log panel for troubleshooting.
 
 ## Install
 
-Download the installer for your system from the
-[Releases](https://github.com/sawongam/gnirehtet-gui/releases) page:
+Download the file for your system from the
+[latest release](https://github.com/sawongam/gnirehtet-gui/releases/latest):
 
-| System | File |
-|--------|------|
-| Debian, Ubuntu | `.deb` |
-| Fedora, openSUSE | `.rpm` |
-| Other Linux | `.AppImage` |
-| Windows | `.msi` or `-setup.exe` |
-| macOS | `.dmg` |
+| System | File to download |
+|--------|------------------|
+| Windows 10, 11 | `gnirehtet-gui-<version>-windows-x64-setup.exe` |
+| macOS, Apple Silicon (M1 and later) | `gnirehtet-gui-<version>-macos-apple-silicon.dmg` |
+| macOS, Intel | `gnirehtet-gui-<version>-macos-intel.dmg` |
+| Debian, Ubuntu, Mint | `gnirehtet-gui-<version>-linux-x64.deb` |
+| Fedora, openSUSE | `gnirehtet-gui-<version>-linux-x64.rpm` |
+| Other Linux | `gnirehtet-gui-<version>-linux-x64.AppImage` |
 
-The app also needs **adb** (Android platform-tools). See the
-[installation guide](docs/INSTALL.md) for step-by-step instructions for each
+The app also needs **adb** (Android platform-tools). The
+[installation guide](docs/INSTALL.md) has step-by-step instructions for each
 system and for preparing the phone.
 
 ## Usage
@@ -72,7 +73,7 @@ system and for preparing the phone.
    number* seven times, then Settings → Developer options → USB debugging).
 2. Connect the phone with a USB cable and accept the *Allow USB debugging?*
    prompt on the phone.
-3. Open Gnirehtet, select the phone and click **Connect**.
+3. Open Gnirehtet and click **Connect**.
 4. Accept the *Connection request* (VPN) prompt on the phone.
 
 The phone now uses the computer's connection. Click **Disconnect** to stop.
@@ -110,10 +111,10 @@ computer, but you never have to run it yourself.
 ```bash
 git clone https://github.com/sawongam/gnirehtet-gui.git
 cd gnirehtet-gui/apps/desktop
-npm install
-npm run setup        # fetches the pinned gnirehtet relay and APK (checksum-verified)
-npm run tauri dev    # run in development
-npm run tauri build  # build installers into target/release/bundle/
+pnpm install
+pnpm run setup    # fetches the pinned gnirehtet relay and APK (checksum-verified)
+pnpm tauri dev    # run in development
+pnpm tauri build  # build installers into target/release/bundle/
 ```
 
 Prerequisites (Rust 1.88, Node.js 20.19+, system libraries) and the project layout

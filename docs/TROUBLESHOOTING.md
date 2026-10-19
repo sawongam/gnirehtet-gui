@@ -15,9 +15,10 @@ its full path. For example, on Linux:
 ADB=/opt/platform-tools/adb gnirehtet-gui
 ```
 
-**Settings → Diagnostics** shows the adb path the app is using and its version.
+The first line of the **Log** shows the adb, relay and client APK paths the
+app is using.
 
-## The phone is not listed
+## The app keeps saying "Plug in your phone"
 
 - Check that **USB debugging** is enabled on the phone.
 - Try a different cable or port. Many cables only carry power.
@@ -77,11 +78,11 @@ The app never stops or takes over a relay it did not start itself.
 - Check that the computer itself is online.
 - **DNS:** the phone uses `8.8.8.8` by default. If your network blocks public DNS
   (common on corporate networks), enter your network's DNS server under
-  **Settings → DNS servers**.
+  **Preferences → DNS servers**.
 - **Firewall:** the relay makes normal outgoing connections on the phone's
   behalf. On Windows, allow `gnirehtet-relay` if the firewall asks. Security
   software that filters outgoing traffic may need an exception.
-- **Routes:** if you changed **Settings → Routes**, only those ranges go
+- **Routes:** if you changed **Preferences → Routes**, only those ranges go
   through the computer.
 - IPv6-only sites and `ping` do not work; gnirehtet relays IPv4 TCP and UDP only.
 
@@ -107,7 +108,7 @@ and click **Connect** and then **Disconnect**.
 ## "The relay program is missing" / "The gnirehtet client APK is missing"
 
 The installation is incomplete. Reinstall the app. If you built it yourself, run
-`npm run setup` in `apps/desktop` before building (see
+`pnpm run setup` in `apps/desktop` before building (see
 [DEVELOPMENT.md](DEVELOPMENT.md)).
 
 ## Reporting a bug
@@ -115,6 +116,6 @@ The installation is incomplete. Reinstall the app. If you built it yourself, run
 Open an issue at <https://github.com/sawongam/gnirehtet-gui/issues> and include:
 
 - your operating system and version, and the phone model and Android version;
-- the app version (**Settings → About**) and the output of `adb version`;
+- the app version (**Preferences → About**) and the output of `adb version`;
 - what you did, what you expected, and what happened instead;
 - the log (**Log → Copy**).

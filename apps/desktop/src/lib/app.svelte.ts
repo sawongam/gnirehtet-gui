@@ -58,7 +58,7 @@ class AppState {
     if (!isTauri()) {
       this.adbError = {
         code: "INTERNAL",
-        message: "The interface is running outside the desktop app; start it with `npm run tauri dev`.",
+        message: "The interface is running outside the desktop app; start it with `pnpm tauri dev`.",
       };
       this.loaded = true;
       return;

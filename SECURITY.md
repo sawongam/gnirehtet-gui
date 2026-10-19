@@ -8,8 +8,7 @@ localhost, or the app killing processes it didn't start.
 ## Reporting
 
 Please don't open a public issue. Use GitHub's
-[private vulnerability reporting](https://github.com/sawongam/gnirehtet-gui/security/advisories/new)
-or email sangamadhikari.61@gmail.com.
+[private vulnerability reporting](https://github.com/sawongam/gnirehtet-gui/security/advisories/new).
 
 Include what you found, how to reproduce it, and the app version. I'll reply
 within a week and let you know when a fix is released.

@@ -27,7 +27,7 @@ also happen with the `gnirehtet` command-line tool, report them there.
    cargo fmt --all --check
    cargo clippy --workspace --all-targets -- -D warnings
    cargo test --workspace
-   cd apps/desktop && npm run check && npm test
+   cd apps/desktop && pnpm check && pnpm test
    ```
 5. For changes to the connection flow, go through the manual test checklist in
    DEVELOPMENT.md with a real phone.

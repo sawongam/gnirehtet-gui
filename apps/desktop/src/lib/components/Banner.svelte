@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { slide } from "svelte/transition";
+  import { fly } from "svelte/transition";
   import { app } from "$lib/app.svelte";
   import { errorHelp } from "$lib/errors";
 
@@ -15,7 +15,7 @@
 </script>
 
 {#if app.error && help}
-  <div class="banner error" role="alert" transition:slide={{ duration: 160 }}>
+  <div class="banner error" role="alert" transition:fly={{ y: 16, duration: 220 }}>
     <div class="text">
       <p class="title">{help.title}</p>
       <p class="hint">{help.hint}</p>
@@ -32,7 +32,7 @@
     </div>
   </div>
 {:else if app.notice}
-  <div class="banner info" role="status" transition:slide={{ duration: 160 }}>
+  <div class="banner info" role="status" transition:fly={{ y: 16, duration: 220 }}>
     <div class="text">
       <p class="hint">{app.notice}</p>
     </div>
@@ -43,13 +43,19 @@
 {/if}
 
 <style>
+  /* A card at the bottom of the window; the connection screen shrinks above it. */
   .banner {
     flex-shrink: 0;
     display: flex;
     align-items: flex-start;
     gap: 16px;
-    padding: 10px 14px 10px 18px;
-    box-shadow: inset 0 -1px var(--line);
+    width: min(600px, calc(100% - 32px));
+    margin: 0 auto 16px;
+    padding: 10px 12px 10px 18px;
+    border-radius: 14px;
+    box-shadow:
+      0 0 0 1px var(--line),
+      0 10px 30px -8px rgb(0 0 6 / 0.3);
   }
 
   .error {

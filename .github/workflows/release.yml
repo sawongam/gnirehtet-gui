@@ -1,8 +1,9 @@
 name: Release
 
 # Every push to prod runs CI. If the app version has no release yet, it then
-# builds installers for every platform into a draft release v<version>, checks
-# that all of them are there, adds SHA256SUMS and publishes the release.
+# builds installers for every platform into a draft release v<version>, renames
+# them after the system they are for, checks that all of them are there, adds
+# SHA256SUMS.txt and publishes the release.
 # Pushes that keep the same version only run CI.
 on:
   push:
@@ -88,6 +89,9 @@ jobs:
       - run: |
           rustup toolchain install
           rustup target add ${{ matrix.target }}
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: apps/desktop/package.json
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
@@ -100,7 +104,7 @@ jobs:
         run: node scripts/fetch-upstream.mjs --target ${{ matrix.target }}
       - name: Install frontend dependencies
         working-directory: apps/desktop
-        run: npm ci
+        run: pnpm install --frozen-lockfile
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -119,6 +123,35 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RELEASE: repos/${{ github.repository }}/releases/${{ needs.prepare.outputs.release-id }}
     steps:
+      # tauri-action names files after the CPU (amd64, x64, aarch64). Rename
+      # them after the system, and drop the macOS .app.tar.gz updater archives:
+      # the app has no updater and the .dmg already holds the app.
+      - name: Rename installers
+        env:
+          VERSION: ${{ needs.prepare.outputs.tag }}
+        run: |
+          version=${VERSION#v}
+          gh api --paginate "$RELEASE/assets" --jq '.[] | "\(.id) \(.name)"' |
+            while read -r id name; do
+              case "$name" in
+                *.app.tar.gz | *.app.tar.gz.sig) new= ;;
+                *_amd64.deb) new=linux-x64.deb ;;
+                *.x86_64.rpm) new=linux-x64.rpm ;;
+                *_amd64.AppImage) new=linux-x64.AppImage ;;
+                *_x64-setup.exe) new=windows-x64-setup.exe ;;
+                *_aarch64.dmg) new=macos-apple-silicon.dmg ;;
+                *_x64.dmg) new=macos-intel.dmg ;;
+                *) echo "::error::Unexpected release asset $name"; exit 1 ;;
+              esac
+              if [ -z "$new" ]; then
+                echo "Deleting $name"
+                gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$id"
+              else
+                echo "$name -> gnirehtet-gui-$version-$new"
+                gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/assets/$id" \
+                  -f name="gnirehtet-gui-$version-$new" > /dev/null
+              fi
+            done
       - name: Download installers
         working-directory: ${{ runner.temp }}
         run: |
@@ -132,22 +165,23 @@ jobs:
         working-directory: ${{ runner.temp }}/assets
         run: |
           missing=0
-          for pattern in '\.deb$' '\.rpm$' '\.AppImage$' '\.msi$' '-setup\.exe$' 'aarch64.*\.dmg$' '(x64|x86_64).*\.dmg$'; do
-            if ! ls | grep -qE "$pattern"; then
-              echo "::error::No release asset matches $pattern"
+          for suffix in windows-x64-setup.exe macos-apple-silicon.dmg macos-intel.dmg \
+                        linux-x64.deb linux-x64.rpm linux-x64.AppImage; do
+            if ! ls | grep -qE -- "-$suffix\$"; then
+              echo "::error::No release asset ends with -$suffix"
               missing=1
             fi
           done
           exit $missing
-      - name: Upload SHA256SUMS
+      - name: Upload SHA256SUMS.txt
         working-directory: ${{ runner.temp }}/assets
         run: |
-          sha256sum * > "$RUNNER_TEMP/SHA256SUMS"
-          cat "$RUNNER_TEMP/SHA256SUMS"
+          sha256sum * > "$RUNNER_TEMP/SHA256SUMS.txt"
+          cat "$RUNNER_TEMP/SHA256SUMS.txt"
           curl --fail-with-body -sS -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Content-Type: text/plain" \
-            --data-binary @"$RUNNER_TEMP/SHA256SUMS" \
-            "https://uploads.github.com/$RELEASE/assets?name=SHA256SUMS"
+            --data-binary @"$RUNNER_TEMP/SHA256SUMS.txt" \
+            "https://uploads.github.com/$RELEASE/assets?name=SHA256SUMS.txt"
       - name: Publish
         run: gh api -X PATCH "$RELEASE" -F draft=false -f make_latest=true

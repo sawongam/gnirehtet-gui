@@ -1,27 +1,21 @@
 <script lang="ts" module>
-  export type Page = "connection" | "logs" | "preferences";
+  export type Panel = "log" | "preferences";
 </script>
 
 <script lang="ts">
   import { app } from "$lib/app.svelte";
 
-  let { page = $bindable("connection") }: { page?: Page } = $props();
-
-  const pages: { id: Page; label: string }[] = [
-    { id: "connection", label: "Connection" },
-    { id: "logs", label: "Log" },
-    { id: "preferences", label: "Preferences" },
-  ];
+  let { panel = $bindable(null) }: { panel?: Panel | null } = $props();
 
   const hasErrors = $derived(app.logs.some((l) => l.level === "error"));
 
-  // Alt+1..3 switches views, as in other GNOME apps with a view switcher.
+  // Ctrl+L opens the log and Ctrl+, opens preferences.
   function onKeydown(event: KeyboardEvent) {
-    if (!event.altKey || event.ctrlKey || event.metaKey) return;
-    const index = Number(event.key) - 1;
-    if (index >= 0 && index < pages.length) {
+    if (!event.ctrlKey || event.altKey || event.metaKey) return;
+    const target = event.key === "l" ? "log" : event.key === "," ? "preferences" : null;
+    if (target) {
       event.preventDefault();
-      page = pages[index].id;
+      panel = panel === target ? null : target;
     }
   }
 </script>
@@ -29,46 +23,42 @@
 <svelte:window onkeydown={onKeydown} />
 
 <header>
-  <div class="segmented" role="tablist" aria-label="View">
-    {#each pages as item, i (item.id)}
-      <button
-        type="button"
-        role="tab"
-        aria-selected={page === item.id}
-        title="Alt+{i + 1}"
-        onclick={() => (page = item.id)}
-      >
-        {item.label}
-        {#if item.id === "logs" && hasErrors}
-          <span class="badge" aria-label="contains errors"></span>
-        {/if}
-      </button>
-    {/each}
-  </div>
+  <button type="button" class="btn small flat" title="Ctrl+L" onclick={() => (panel = "log")}>
+    Log
+    {#if hasErrors}<span class="badge" aria-label="contains errors"></span>{/if}
+  </button>
+  <button type="button" class="btn small flat" title="Ctrl+," onclick={() => (panel = "preferences")}>
+    Preferences
+  </button>
 </header>
 
 <style>
+  /* Floats over the connection screen so its glow is never cut off. */
   header {
-    flex-shrink: 0;
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
     display: flex;
     align-items: center;
-    justify-content: center;
-    height: 47px;
-    padding: 0 8px;
-    background: var(--headerbar);
-    box-shadow: inset 0 -1px var(--headerbar-shade);
+    justify-content: flex-end;
+    gap: 2px;
+    height: 44px;
+    padding: 0 10px;
   }
 
-  .segmented button {
-    min-width: 104px;
+  .btn {
+    font-weight: 600;
+    color: var(--fg-dim);
+  }
+  .btn:hover {
+    color: var(--fg);
   }
 
   .badge {
-    display: inline-block;
     width: 6px;
     height: 6px;
-    margin-left: 5px;
-    vertical-align: 0.45em;
+    margin-left: 6px;
     border-radius: 50%;
     background: var(--danger-dot);
   }

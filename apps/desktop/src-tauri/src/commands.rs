@@ -74,3 +74,25 @@ pub fn get_environment(app: AppHandle, tools: State<'_, ToolPaths>) -> Environme
         apk_found: tools.apk.is_file(),
     }
 }
+
+const REPO_URL: &str = "https://github.com/sawongam/gnirehtet-gui";
+
+/// Open the project page in the default browser. The URL is fixed so the
+/// webview cannot use this to launch arbitrary targets.
+#[tauri::command]
+pub fn open_repo() -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    let mut cmd = std::process::Command::new("xdg-open");
+    #[cfg(target_os = "macos")]
+    let mut cmd = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut cmd = std::process::Command::new("cmd");
+        cmd.args(["/C", "start", ""]);
+        cmd
+    };
+    cmd.arg(REPO_URL)
+        .spawn()
+        .map(drop)
+        .map_err(|e| e.to_string())
+}

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Gnirehtet fork glyph in the app accent blue, with the original's flat 45° long shadow -->
+  <defs>
+    <clipPath id="badge"><circle cx="256" cy="256" r="240"/></clipPath>
+  </defs>
+  <circle cx="256" cy="256" r="240" fill="#3584e4"/>
+  <g clip-path="url(#badge)" fill="#2a76d4">
+    <path d="M102 164H134L454 484V542H422L102 222Z"/>
+    <path d="M378 164H410L730 484V542H698L378 222Z"/>
+    <path d="M166 254H346L666 574V606H486L166 286Z"/>
+    <path d="M236 270H276L596 590V688H556L236 368Z"/>
+    <path d="M166 222H102A64 64 0 0 0 120.745 267.255L440.745 587.255A64 64 0 0 0 486 606V542Z"/>
+    <path d="M346 222H410L730 542A64 64 0 0 1 666 606L346 286Z"/>
+  </g>
+  <g fill="none" stroke="#fff">
+    <path d="M118 164V222a48 48 0 0 0 48 48H346a48 48 0 0 0 48-48V164" stroke-width="32"/>
+    <path d="M256 270V368" stroke-width="40"/>
+  </g>
+</svg>
