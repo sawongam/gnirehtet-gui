@@ -1,7 +1,7 @@
 # Troubleshooting
 
 When something fails, the app shows a message explaining what to do. The
-**Logs** page has the full detail, including the relay's own output. Use the
+**Log** view has the full detail, including the relay's own output. Use the
 **Copy** button there when you report a problem.
 
 ## The app says "adb was not found"
@@ -68,7 +68,7 @@ The client started on the phone, but the VPN has not been accepted yet.
 
 Another program is listening on port 31416. This is usually a `gnirehtet run`
 or `gnirehtet relay` started in a terminal, or a second copy of this app. Stop
-it, or pick another **Relay port** in Settings.
+it, or pick another **Relay port** in Preferences.
 
 The app never stops or takes over a relay it did not start itself.
 
@@ -94,7 +94,7 @@ click **Disconnect**.
 
 ## "The relay stopped"
 
-The relay process exited unexpectedly. The Logs page shows its last output.
+The relay process exited unexpectedly. The Log view shows its last output.
 Click **Reconnect** to start it again.
 
 ## The phone still shows the VPN key icon after the app closed
@@ -117,4 +117,4 @@ Open an issue at <https://github.com/sawongam/gnirehtet-gui/issues> and include:
 - your operating system and version, and the phone model and Android version;
 - the app version (**Settings → About**) and the output of `adb version`;
 - what you did, what you expected, and what happened instead;
-- the log (**Logs → Copy**).
+- the log (**Log → Copy**).

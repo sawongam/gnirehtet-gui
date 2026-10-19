@@ -1,143 +1,489 @@
-@import "tailwindcss/index.css";
-
-@custom-variant dark (&:where(.dark, .dark *));
+/*
+ * Visual language follows the GNOME HIG (libadwaita): a header bar with a view
+ * switcher, a centred status, and boxed lists. Colours are the libadwaita
+ * palette so the app sits naturally next to other desktop apps. Text uses the
+ * platform UI font on purpose: it is what makes a native app look native.
+ */
 
 :root {
   color-scheme: light;
 
-  --bg: #f8fafc;
-  --bg-elevated: #ffffff;
-  --bg-muted: #f1f5f9;
-  --border: #e2e8f0;
-  --border-subtle: #f1f5f9;
+  --window: #fafafb;
+  --view: #ffffff;
+  --headerbar: #ebebed;
+  --headerbar-shade: rgb(0 0 6 / 0.12);
+  --fg: #1e1e24;
+  --fg-dim: rgb(0 0 6 / 0.55);
+  --fg-faint: rgb(0 0 6 / 0.38);
+  --line: rgb(0 0 6 / 0.08);
+  --fill: rgb(0 0 6 / 0.07);
+  --fill-hover: rgb(0 0 6 / 0.11);
+  --fill-active: rgb(0 0 6 / 0.17);
+  --card-shadow: 0 0 0 1px rgb(0 0 6 / 0.03), 0 1px 3px 1px rgb(0 0 6 / 0.07), 0 2px 6px 2px rgb(0 0 6 / 0.03);
 
-  --fg: #0f172a;
-  --fg-body: #475569;
-  --fg-muted: #64748b;
-  --fg-subtle: #94a3b8;
+  --accent-bg: #3584e4;
+  --accent-bg-hover: #2a76d4;
+  --accent-bg-active: #1c62b8;
+  --accent: #0461be;
+  --accent-ring: rgb(53 132 228 / 0.5);
 
-  --accent: #2563eb;
-  --accent-600: #1d4ed8;
-  --accent-700: #1e40af;
-  --accent-100: #dbeafe;
-  --accent-50: #eff6ff;
-  --accent-fg: #ffffff;
+  --success: #007c3d;
+  --success-dot: #26a269;
+  --warning: #905400;
+  --warning-dot: #e5a50a;
+  --danger: #c30000;
+  --danger-dot: #e01b24;
+  --danger-fill: rgb(224 27 36 / 0.1);
+  --danger-fill-hover: rgb(224 27 36 / 0.16);
+  --danger-fill-active: rgb(224 27 36 / 0.22);
 
-  --success: #16a34a;
-  --success-strong: #15803d;
-  --success-soft: #dcfce7;
-  --success-bg: #f0fdf4;
+  --banner-error: #fbe3e4;
+  --banner-info: #e1ecfb;
 
-  --warning: #d97706;
-  --warning-strong: #b45309;
-  --warning-soft: #fef3c7;
-  --warning-bg: #fffbeb;
+  --scrim: rgb(0 0 6 / 0.3);
+  --dialog: #ffffff;
 
-  --danger: #dc2626;
-  --danger-strong: #b91c1c;
-  --danger-soft: #fee2e2;
-  --danger-bg: #fef2f2;
+  --font-ui: "Adwaita Sans", Cantarell, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
+    "Segoe UI", "Noto Sans", Ubuntu, sans-serif;
+  --font-mono: "Adwaita Mono", "Source Code Pro", ui-monospace, "SF Mono", "Cascadia Mono", "DejaVu Sans Mono",
+    monospace;
 
-  --radius: 8px;
-  --radius-lg: 12px;
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.05);
-
-  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans",
-    sans-serif;
-  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "JetBrains Mono", Consolas,
-    "Liberation Mono", monospace;
+  --radius-row: 12px;
+  --radius-control: 6px;
+  --ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 :root.dark {
   color-scheme: dark;
 
-  --bg: #0b1220;
-  --bg-elevated: #111827;
-  --bg-muted: #1f2937;
-  --border: #334155;
-  --border-subtle: #1f2937;
+  --window: #222226;
+  --view: #1d1d20;
+  --headerbar: #2e2e32;
+  --headerbar-shade: rgb(0 0 6 / 0.36);
+  --fg: #ffffff;
+  --fg-dim: rgb(255 255 255 / 0.6);
+  --fg-faint: rgb(255 255 255 / 0.4);
+  --line: rgb(0 0 6 / 0.36);
+  --fill: rgb(255 255 255 / 0.1);
+  --fill-hover: rgb(255 255 255 / 0.15);
+  --fill-active: rgb(255 255 255 / 0.3);
+  --card-shadow: 0 0 0 1px rgb(0 0 6 / 0.09), 0 1px 3px 1px rgb(0 0 6 / 0.15), 0 2px 6px 2px rgb(0 0 6 / 0.08);
 
-  --fg: #f8fafc;
-  --fg-body: #cbd5e1;
-  --fg-muted: #94a3b8;
-  --fg-subtle: #64748b;
+  --accent: #81d0ff;
+  --accent-ring: rgb(120 174 237 / 0.5);
 
-  --accent: #3b82f6;
-  --accent-600: #2563eb;
-  --accent-700: #1d4ed8;
-  --accent-100: #1e3a8a;
-  --accent-50: #172554;
-  --accent-fg: #ffffff;
+  --success: #78e9ab;
+  --success-dot: #2ec27e;
+  --warning: #ffc252;
+  --warning-dot: #e5a50a;
+  --danger: #ff938c;
+  --danger-dot: #e01b24;
+  --danger-fill: rgb(255 147 140 / 0.12);
+  --danger-fill-hover: rgb(255 147 140 / 0.18);
+  --danger-fill-active: rgb(255 147 140 / 0.26);
 
-  --success: #22c55e;
-  --success-strong: #4ade80;
-  --success-soft: rgba(34, 197, 94, 0.16);
-  --success-bg: rgba(34, 197, 94, 0.08);
+  --banner-error: #4a2427;
+  --banner-info: #1f3550;
 
-  --warning: #fbbf24;
-  --warning-strong: #fcd34d;
-  --warning-soft: rgba(251, 191, 36, 0.16);
-  --warning-bg: rgba(251, 191, 36, 0.08);
-
-  --danger: #f87171;
-  --danger-strong: #fca5a5;
-  --danger-soft: rgba(248, 113, 113, 0.16);
-  --danger-bg: rgba(248, 113, 113, 0.08);
-
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --scrim: rgb(0 0 6 / 0.5);
+  --dialog: #36363a;
 }
 
-@theme inline {
-  --color-bg: var(--bg);
-  --color-bg-elevated: var(--bg-elevated);
-  --color-bg-muted: var(--bg-muted);
-  --color-border: var(--border);
-  --color-border-subtle: var(--border-subtle);
-  --color-fg: var(--fg);
-  --color-fg-body: var(--fg-body);
-  --color-fg-muted: var(--fg-muted);
-  --color-fg-subtle: var(--fg-subtle);
-  --color-accent: var(--accent);
-  --color-accent-600: var(--accent-600);
-  --color-accent-700: var(--accent-700);
-  --color-accent-100: var(--accent-100);
-  --color-accent-50: var(--accent-50);
-  --color-accent-fg: var(--accent-fg);
-  --color-success: var(--success);
-  --color-success-strong: var(--success-strong);
-  --color-success-soft: var(--success-soft);
-  --color-success-bg: var(--success-bg);
-  --color-warning: var(--warning);
-  --color-warning-strong: var(--warning-strong);
-  --color-warning-soft: var(--warning-soft);
-  --color-warning-bg: var(--warning-bg);
-  --color-danger: var(--danger);
-  --color-danger-strong: var(--danger-strong);
-  --color-danger-soft: var(--danger-soft);
-  --color-danger-bg: var(--danger-bg);
-  --font-sans: var(--font-ui);
-  --font-mono: var(--font-mono);
+/* Rows sit on --card, which in dark mode is a lighter layer over the window. */
+:root {
+  --card: var(--view);
+}
+:root.dark {
+  --card: rgb(255 255 255 / 0.08);
 }
 
-html {
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-ui);
-  font-size: 14px;
-  line-height: 1.5;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
 }
 
 body {
-  margin: 0;
-  min-height: 100vh;
-  background: var(--bg);
+  background: var(--window);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14.5px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* An app window, not a document: chrome is not selectable. */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
 }
 
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-[tabindex]:focus-visible {
-  outline: 2px solid var(--accent);
+h1,
+h2,
+h3,
+p,
+ol,
+ul,
+dl,
+dd {
+  margin: 0;
+  padding: 0;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: default;
+}
+
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: -2px;
+}
+
+::selection {
+  background: rgb(53 132 228 / 0.3);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--fill-hover);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--fill-active);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- Page column ---------- */
+
+.clamp {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 18px;
+}
+
+/* ---------- Boxed lists ---------- */
+
+.group {
+  margin-top: 26px;
+}
+
+.group-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 2px 8px;
+  min-height: 24px;
+}
+
+.group-title {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.group-note {
+  margin: 10px 2px 0;
+  font-size: 13px;
+  color: var(--fg-dim);
+}
+
+.list {
+  background: var(--card);
+  border-radius: var(--radius-row);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 8px 14px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+}
+
+.row + .row {
+  border-top: 1px solid var(--line);
+}
+
+button.row,
+label.row {
+  transition: background-color 120ms var(--ease);
+}
+button.row:not(:disabled):hover,
+label.row:not(.disabled):hover {
+  background: var(--fill);
+}
+button.row:not(:disabled):active,
+label.row:not(.disabled):active {
+  background: var(--fill-hover);
+}
+button.row:disabled,
+label.row.disabled {
+  opacity: 0.55;
+}
+
+.row-text {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 0;
+}
+
+.row-title {
+  display: block;
+}
+
+.row-sub {
+  display: block;
+  font-size: 13px;
+  color: var(--fg-dim);
+  overflow-wrap: anywhere;
+}
+
+.row-end {
+  flex-shrink: 0;
+  color: var(--fg-dim);
+  text-align: right;
+}
+
+.tone-success {
+  color: var(--success);
+}
+.tone-warning {
+  color: var(--warning);
+}
+.tone-danger {
+  color: var(--danger);
+}
+.tone-muted {
+  color: var(--fg-dim);
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--fill);
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    background-color 120ms var(--ease),
+    color 120ms var(--ease),
+    opacity 120ms var(--ease);
+}
+.btn:hover {
+  background: var(--fill-hover);
+}
+.btn:active {
+  background: var(--fill-active);
+}
+.btn:focus-visible {
   outline-offset: 2px;
+}
+.btn:disabled {
+  opacity: 0.5;
+  background: var(--fill);
+}
+
+.btn.flat {
+  background: transparent;
+}
+.btn.flat:hover {
+  background: var(--fill);
+}
+.btn.flat:active {
+  background: var(--fill-hover);
+}
+.btn.flat:disabled {
+  background: transparent;
+}
+
+.btn.small {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.btn.pill {
+  min-height: 40px;
+  padding: 0 32px;
+  border-radius: 999px;
+}
+
+.btn.suggested {
+  background: var(--accent-bg);
+  color: #fff;
+}
+.btn.suggested:hover {
+  background: var(--accent-bg-hover);
+}
+.btn.suggested:active {
+  background: var(--accent-bg-active);
+}
+.btn.suggested:disabled {
+  background: var(--accent-bg);
+}
+
+.btn.destructive {
+  background: var(--danger-fill);
+  color: var(--danger);
+}
+.btn.destructive:hover {
+  background: var(--danger-fill-hover);
+}
+.btn.destructive:active {
+  background: var(--danger-fill-active);
+}
+.btn.destructive:disabled {
+  background: var(--danger-fill);
+}
+
+/* ---------- Entries ---------- */
+
+.entry {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--fill);
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  transition: outline-color 120ms var(--ease);
+  user-select: text;
+  -webkit-user-select: text;
+}
+.entry::placeholder {
+  color: var(--fg-faint);
+}
+.entry:focus {
+  outline-color: var(--accent-ring);
+}
+.entry[aria-invalid="true"] {
+  outline-color: color-mix(in srgb, var(--danger) 60%, transparent);
+}
+
+/* ---------- Segmented control ---------- */
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 8px;
+  background: var(--fill);
+}
+.segmented button {
+  min-height: 28px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--fg-dim);
+  transition:
+    background-color 120ms var(--ease),
+    color 120ms var(--ease);
+}
+.segmented button:hover {
+  color: var(--fg);
+}
+.segmented button[aria-checked="true"],
+.segmented button[aria-selected="true"] {
+  background: var(--view);
+  color: var(--fg);
+  box-shadow: 0 1px 2px rgb(0 0 6 / 0.12);
+}
+:root.dark .segmented button[aria-checked="true"],
+:root.dark .segmented button[aria-selected="true"] {
+  background: rgb(255 255 255 / 0.15);
+}
+
+/* ---------- Status dot ---------- */
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--fg-faint);
+}
+.dot.success {
+  background: var(--success-dot);
+}
+.dot.warning {
+  background: var(--warning-dot);
+}
+.dot.danger {
+  background: var(--danger-dot);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* Small flat button that trails a group heading (e.g. Refresh). */
+.group-head .btn.small {
+  margin-bottom: -3px;
+  font-weight: 600;
+  color: var(--fg-dim);
+}
+.group-head .btn.small:hover {
+  color: var(--fg);
 }

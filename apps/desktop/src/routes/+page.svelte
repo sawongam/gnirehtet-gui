@@ -1,13 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
-  import Sidebar, { type Page } from "$lib/components/Sidebar.svelte";
-  import StatusPanel from "$lib/components/StatusPanel.svelte";
-  import MessageBanner from "$lib/components/MessageBanner.svelte";
-  import DeviceList from "$lib/components/DeviceList.svelte";
-  import SetupChecklist from "$lib/components/SetupChecklist.svelte";
+  import HeaderBar, { type Page } from "$lib/components/HeaderBar.svelte";
+  import Banner from "$lib/components/Banner.svelte";
+  import ConnectionView from "$lib/components/ConnectionView.svelte";
   import LogsView from "$lib/components/LogsView.svelte";
-  import SettingsView from "$lib/components/SettingsView.svelte";
+  import PreferencesView from "$lib/components/PreferencesView.svelte";
   import Dialog from "$lib/components/ui/dialog.svelte";
   import { app } from "$lib/app.svelte";
   import { isTauri } from "$lib/api";
@@ -44,27 +42,17 @@
   });
 </script>
 
-<div class="flex h-screen min-h-0 overflow-hidden bg-bg text-fg">
-  <Sidebar bind:page />
+<div class="window">
+  <HeaderBar bind:page />
+  <Banner onShowLog={() => (page = "logs")} />
 
-  <main class="min-w-0 flex-1 overflow-y-auto">
+  <main class:fill={page === "logs"}>
     {#if page === "connection"}
-      <div class="mx-auto flex max-w-5xl flex-col gap-5 p-6 pb-10">
-        <div>
-          <h1 class="text-2xl font-semibold tracking-tight text-fg">Connection</h1>
-          <p class="text-sm text-fg-muted">Share this computer’s internet with an Android phone over USB.</p>
-        </div>
-        <StatusPanel />
-        <MessageBanner />
-        <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <DeviceList />
-          <SetupChecklist />
-        </div>
-      </div>
+      <ConnectionView />
     {:else if page === "logs"}
       <LogsView />
     {:else}
-      <SettingsView />
+      <PreferencesView />
     {/if}
   </main>
 </div>
@@ -72,8 +60,31 @@
 <Dialog
   bind:open={quitDialogOpen}
   title="Disconnect and quit?"
-  description="A connection is active. Quitting stops the VPN on the phone and the relay."
+  description="The phone is still using this connection. Quitting turns off its VPN and stops the relay."
   confirmLabel={quitting ? "Disconnecting…" : "Disconnect and quit"}
   busy={quitting}
   onConfirm={quit}
 />
+
+<style>
+  .window {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  main {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 0 36px;
+  }
+
+  main.fill {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+  }
+</style>

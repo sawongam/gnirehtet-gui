@@ -152,7 +152,7 @@ Having trouble? See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Advanced settings
 
-The **Settings** page has three connection options, all optional:
+The **Preferences** view has three connection options, all optional:
 
 | Option | Default | Description |
 |--------|---------|-------------|

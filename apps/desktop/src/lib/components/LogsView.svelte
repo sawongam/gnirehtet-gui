@@ -1,11 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { Copy, Check, Trash2 } from "@lucide/svelte";
-  import Button from "$lib/components/ui/button.svelte";
-  import Card from "$lib/components/ui/card.svelte";
   import { app } from "$lib/app.svelte";
   import type { LogEntry } from "$lib/types";
-  import { cn } from "$lib/utils";
 
   let problemsOnly = $state(false);
   let copied = $state(false);
@@ -46,57 +42,114 @@
       if (container) container.scrollTop = container.scrollHeight;
     });
   });
-
-  const levelStyle: Record<LogEntry["level"], string> = {
-    debug: "text-fg-subtle",
-    info: "text-fg-body",
-    warn: "text-warning-strong",
-    error: "text-danger-strong",
-  };
 </script>
 
-<div class="mx-auto flex h-full max-w-5xl flex-col gap-4 p-6">
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <h1 class="text-2xl font-semibold tracking-tight text-fg">Logs</h1>
-      <p class="text-sm text-fg-muted">Activity of this app and of the relay, for troubleshooting.</p>
-    </div>
-    <div class="flex items-center gap-2">
-      <label class="flex items-center gap-2 text-sm text-fg-body">
-        <input type="checkbox" bind:checked={problemsOnly} class="size-4 accent-[var(--accent)]" />
-        Warnings and errors only
-      </label>
-      <Button variant="secondary" size="sm" onclick={copy} disabled={visible.length === 0}>
-        {#if copied}<Check class="size-3.5" /> Copied{:else}<Copy class="size-3.5" /> Copy{/if}
-      </Button>
-      <Button variant="ghost" size="sm" onclick={() => app.clearLogs()} disabled={app.logs.length === 0}>
-        <Trash2 class="size-3.5" /> Clear
-      </Button>
-    </div>
+<div class="toolbar">
+  <div class="segmented" role="radiogroup" aria-label="Filter">
+    <button type="button" role="radio" aria-checked={!problemsOnly} onclick={() => (problemsOnly = false)}>
+      All
+    </button>
+    <button type="button" role="radio" aria-checked={problemsOnly} onclick={() => (problemsOnly = true)}>
+      Problems
+    </button>
   </div>
-
-  <Card class="min-h-0 flex-1 overflow-hidden">
-    <!-- Focusable so the log can be scrolled with the keyboard. -->
-    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-    <div
-      bind:this={container}
-      onscroll={onScroll}
-      class="h-full overflow-auto p-3 font-mono text-xs leading-relaxed"
-      role="log"
-      aria-label="Log output"
-      tabindex="0"
-    >
-      {#if visible.length === 0}
-        <p class="p-6 text-center font-sans text-sm text-fg-muted">No log entries yet.</p>
-      {:else}
-        {#each visible as entry, i (i)}
-          <div class={cn("whitespace-pre-wrap break-words", levelStyle[entry.level])}>
-            <span class="text-fg-subtle">{formatTime(entry.timestampMs)}</span>
-            <span class="text-fg-subtle">{entry.source === "relay" ? "relay" : "app  "}</span>
-            {entry.message}
-          </div>
-        {/each}
-      {/if}
-    </div>
-  </Card>
+  <div class="tools">
+    <button type="button" class="btn small" onclick={copy} disabled={visible.length === 0}>
+      {copied ? "Copied" : "Copy"}
+    </button>
+    <button type="button" class="btn small flat" onclick={() => app.clearLogs()} disabled={app.logs.length === 0}>
+      Clear
+    </button>
+  </div>
 </div>
+
+<!-- Focusable so the log can be scrolled with the keyboard. -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div
+  bind:this={container}
+  onscroll={onScroll}
+  class="log selectable"
+  role="log"
+  aria-label="Log output"
+  tabindex="0"
+>
+  {#if visible.length === 0}
+    <p class="empty">{problemsOnly ? "No warnings or errors." : "Nothing logged yet."}</p>
+  {:else}
+    {#each visible as entry, i (i)}
+      <div class="line {entry.level}">
+        <span class="time numeric">{formatTime(entry.timestampMs)}</span>
+        <span class="source">{entry.source}</span>
+        <span class="message">{entry.message}</span>
+      </div>
+    {/each}
+  {/if}
+</div>
+
+<style>
+  .toolbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .tools {
+    display: flex;
+    gap: 4px;
+  }
+
+  .log {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    margin: 0 14px 14px;
+    padding: 8px 0;
+    border-radius: var(--radius-row);
+    background: var(--view);
+    box-shadow: var(--card-shadow);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+
+  .line {
+    display: grid;
+    grid-template-columns: auto 3.6em 1fr;
+    gap: 12px;
+    padding: 0 14px;
+  }
+  .line:hover {
+    background: var(--fill);
+  }
+
+  .time,
+  .source {
+    color: var(--fg-faint);
+  }
+
+  .message {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .debug .message {
+    color: var(--fg-dim);
+  }
+  .warn .message {
+    color: var(--warning);
+  }
+  .error .message {
+    color: var(--danger);
+  }
+
+  .empty {
+    padding: 48px 16px;
+    text-align: center;
+    font-family: var(--font-ui);
+    font-size: 14.5px;
+    color: var(--fg-dim);
+  }
+</style>

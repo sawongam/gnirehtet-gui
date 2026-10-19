@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Button from "./button.svelte";
+  import { fade, scale } from "svelte/transition";
 
   let {
     open = $bindable(false),
@@ -19,10 +19,11 @@
     onConfirm: () => void | Promise<void>;
   } = $props();
 
-  let confirmButton = $state<HTMLButtonElement | null>(null);
+  let cancelButton = $state<HTMLButtonElement | null>(null);
 
+  // Focus the safe choice, as alert dialogs do for destructive actions.
   $effect(() => {
-    if (open) confirmButton?.focus();
+    if (open) cancelButton?.focus();
   });
 
   function cancel() {
@@ -38,35 +39,85 @@
 
 {#if open}
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    class="scrim"
     role="presentation"
+    transition:fade={{ duration: 120 }}
     onclick={(e) => {
       if (e.target === e.currentTarget) cancel();
     }}
   >
     <div
+      class="dialog"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="dialog-title"
       aria-describedby={description ? "dialog-description" : undefined}
-      class="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-bg-elevated p-5 shadow-[var(--shadow)]"
+      transition:scale={{ duration: 160, start: 0.96 }}
     >
-      <h2 id="dialog-title" class="text-base font-semibold text-fg">{title}</h2>
-      {#if description}
-        <p id="dialog-description" class="mt-1.5 text-sm text-fg-body">{description}</p>
-      {/if}
-      <div class="mt-5 flex justify-end gap-2">
-        <Button variant="ghost" onclick={cancel} disabled={busy}>{cancelLabel}</Button>
-        <button
-          bind:this={confirmButton}
-          type="button"
-          class="inline-flex h-9 items-center justify-center rounded-[var(--radius)] border border-danger/30 bg-danger-bg px-4 text-sm font-medium text-danger-strong hover:bg-danger-soft disabled:opacity-50"
-          onclick={() => onConfirm()}
-          disabled={busy}
-        >
+      <div class="body">
+        <h2 id="dialog-title">{title}</h2>
+        {#if description}
+          <p id="dialog-description">{description}</p>
+        {/if}
+      </div>
+      <div class="buttons">
+        <button bind:this={cancelButton} type="button" class="btn" onclick={cancel} disabled={busy}>
+          {cancelLabel}
+        </button>
+        <button type="button" class="btn destructive" onclick={() => onConfirm()} disabled={busy}>
           {confirmLabel}
         </button>
       </div>
     </div>
   </div>
 {/if}
+
+<style>
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--scrim);
+  }
+
+  .dialog {
+    width: 100%;
+    max-width: 372px;
+    border-radius: 14px;
+    background: var(--dialog);
+    box-shadow:
+      0 0 0 1px rgb(0 0 6 / 0.05),
+      0 12px 32px rgb(0 0 6 / 0.25);
+  }
+
+  .body {
+    padding: 28px 28px 22px;
+    text-align: center;
+  }
+
+  h2 {
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  p {
+    margin-top: 10px;
+    color: var(--fg-dim);
+  }
+
+  .buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 0 24px 24px;
+  }
+
+  .buttons .btn {
+    min-height: 40px;
+    border-radius: 10px;
+  }
+</style>

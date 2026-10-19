@@ -20,7 +20,7 @@ const HELP: Record<string, ErrorHelp> = {
   },
   ADB_FAILED: {
     title: "adb reported an error",
-    hint: "See the details below and the Logs page.",
+    hint: "Open Details or the Log for the full message.",
   },
   APK_MISSING: {
     title: "The gnirehtet client APK is missing",
@@ -32,7 +32,7 @@ const HELP: Record<string, ErrorHelp> = {
   },
   INVALID_ARGUMENT: {
     title: "Invalid setting",
-    hint: "Check the connection options in Settings.",
+    hint: "Check the connection options in Preferences.",
   },
   DEVICE_UNAUTHORIZED: {
     title: "The phone has not authorized this computer",
@@ -48,11 +48,11 @@ const HELP: Record<string, ErrorHelp> = {
   },
   MULTIPLE_DEVICES: {
     title: "Several devices are connected",
-    hint: "Select the device to use in the device list.",
+    hint: "Select the phone to use under Phones.",
   },
   PORT_IN_USE: {
     title: "The relay port is already in use",
-    hint: "Another gnirehtet relay may still be running (for example “gnirehtet run” in a terminal). Stop it, or choose a different port in Settings.",
+    hint: "Another gnirehtet relay may still be running (for example “gnirehtet run” in a terminal). Stop it, or choose a different port in Preferences.",
   },
   RELAY_NOT_FOUND: {
     title: "The relay program is missing",
@@ -60,11 +60,11 @@ const HELP: Record<string, ErrorHelp> = {
   },
   RELAY_START_FAILED: {
     title: "The relay could not start",
-    hint: "Check the Logs page for details. A firewall or security tool may be blocking it.",
+    hint: "The Log has the details. A firewall or security tool may be blocking it.",
   },
   RELAY_CRASHED: {
     title: "The relay stopped unexpectedly",
-    hint: "Reconnect to start it again. Check the Logs page for details.",
+    hint: "Reconnect to start it again. The Log has the details.",
   },
   TUNNEL_FAILED: {
     title: "Could not create the USB tunnel",
@@ -72,7 +72,7 @@ const HELP: Record<string, ErrorHelp> = {
   },
   CLIENT_START_FAILED: {
     title: "Could not start the client on the phone",
-    hint: "Unlock the phone and try again. If it keeps failing, reinstall the client from the device list.",
+    hint: "Unlock the phone and try again. If it keeps failing, reinstall the client under Details.",
   },
 };
 
@@ -80,7 +80,7 @@ export function errorHelp(code: string): ErrorHelp {
   return (
     HELP[code] ?? {
       title: "Something went wrong",
-      hint: "See the details below and the Logs page.",
+      hint: "Open Details or the Log for the full message.",
     }
   );
 }
