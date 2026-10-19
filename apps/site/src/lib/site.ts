@@ -1,3 +1,5 @@
+/** Where the site is served; canonical URLs, the sitemap and social images use it. */
+export const SITE = "https://gnirehtet.sangamadhikari.com";
 export const REPO = "https://github.com/sawongam/gnirehtet-gui";
 export const RELEASES = `${REPO}/releases/latest`;
 export const DOCS = `${REPO}/blob/master/docs`;

@@ -6,7 +6,7 @@
   import HowItWorks from "$lib/components/HowItWorks.svelte";
   import Downloads from "$lib/components/Downloads.svelte";
   import { reveal } from "$lib/reveal";
-  import { DOCS, REPO, UPSTREAM } from "$lib/site";
+  import { DOCS, RELEASES, REPO, SITE, UPSTREAM } from "$lib/site";
   import { release } from "$lib/release.svelte";
 
   const uses = [
@@ -79,19 +79,95 @@
     },
   ];
 
-  const TITLE = "Gnirehtet GUI: your computer's internet on your Android phone, over USB";
+  // Written for what people search: reverse tethering, sharing a PC's internet
+  // with an Android phone over USB, without root.
+  const faq = [
+    {
+      q: "How do I share my computer's internet with my Android phone over USB?",
+      a: "Turn on USB debugging on the phone, plug it in, open Gnirehtet GUI and click Connect. Accept the VPN request on the phone and it's online through your computer's connection, whether that's Ethernet, Wi-Fi or a VPN.",
+    },
+    {
+      q: "Is this the same as USB tethering?",
+      a: "No, it's the opposite direction. Android's built-in USB tethering shares the phone's mobile data with the computer. Reverse tethering shares the computer's connection with the phone.",
+    },
+    {
+      q: "Does the phone need root?",
+      a: "No. The Android client uses the standard VPN API, which is why the phone asks you to accept a connection request. Android 5.0 or newer is enough.",
+    },
+    {
+      q: "Do I need to install anything on the phone?",
+      a: "Only USB debugging has to be enabled. The app installs the small gnirehtet client on the phone the first time you connect.",
+    },
+    {
+      q: "Does it work without the command line?",
+      a: "Yes, that's the point of this app. You still need adb (Android platform-tools) installed on the computer, but you never have to run it yourself.",
+    },
+    {
+      q: "Is it free?",
+      a: "Yes. Gnirehtet GUI is free and open source under the Apache License 2.0, for Windows, macOS and Linux.",
+    },
+    {
+      q: "What doesn't it do?",
+      a: "These limits come from gnirehtet itself: IPv4 only, TCP and UDP only (so ping doesn't work on the phone), and one phone at a time.",
+    },
+  ];
+
+  const TITLE = "Gnirehtet GUI: Reverse Tethering for Android over USB";
   const DESCRIPTION =
-    "A desktop app for reverse tethering. Plug in an Android phone, click Connect, and it uses your computer's internet. No root, for Windows, macOS and Linux.";
+    "Free app for Android reverse tethering. Share your computer's internet with your phone over USB, with no root and nothing to set up. Windows, macOS, Linux.";
+  const IMAGE = `${SITE}/og.png`;
+  const IMAGE_ALT = "Gnirehtet GUI: reverse tethering for Android over USB, with the app showing a connected phone";
+
+  // Escaped so the JSON can't close its <script> tag.
+  const jsonLd = JSON.stringify([
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "Gnirehtet GUI",
+      alternateName: "Gnirehtet",
+      description: DESCRIPTION,
+      url: `${SITE}/`,
+      image: IMAGE,
+      applicationCategory: "UtilitiesApplication",
+      operatingSystem: "Windows 10, Windows 11, macOS, Linux",
+      softwareVersion: __APP_VERSION__,
+      downloadUrl: RELEASES,
+      license: "https://www.apache.org/licenses/LICENSE-2.0",
+      isAccessibleForFree: true,
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      codeRepository: REPO,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faq.map(({ q, a }) => ({
+        "@type": "Question",
+        name: q,
+        acceptedAnswer: { "@type": "Answer", text: a },
+      })),
+    },
+  ]).replace(/</g, "\\u003c");
 </script>
 
 <svelte:head>
   <title>{TITLE}</title>
   <meta name="description" content={DESCRIPTION} />
-  <meta property="og:title" content="Gnirehtet GUI" />
-  <meta property="og:description" content={DESCRIPTION} />
+  <link rel="canonical" href="{SITE}/" />
   <meta property="og:type" content="website" />
-  <meta property="og:image" content="https://gnirehtet.sangamadhikari.com/og.png" />
+  <meta property="og:site_name" content="Gnirehtet GUI" />
+  <meta property="og:url" content="{SITE}/" />
+  <meta property="og:title" content={TITLE} />
+  <meta property="og:description" content={DESCRIPTION} />
+  <meta property="og:image" content={IMAGE} />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content={IMAGE_ALT} />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={TITLE} />
+  <meta name="twitter:description" content={DESCRIPTION} />
+  <meta name="twitter:image" content={IMAGE} />
+  <meta name="twitter:image:alt" content={IMAGE_ALT} />
+  {@html `<script type="application/ld+json">${jsonLd}</script>`}
 </svelte:head>
 
 <Nav />
@@ -100,11 +176,10 @@
   <section class="hero">
     <div class="wrap intro">
       <a class="release" href={release.url}>Version {release.version} is out</a>
-      <p class="name">Gnirehtet GUI</p>
-      <h1>Your computer's internet, on your Android phone.</h1>
+      <h1><span class="name">Gnirehtet GUI</span> Your computer's internet, on your Android phone.</h1>
       <p class="lede">
-        Plug the phone in with a USB cable and click Connect. It works without root, and there's nothing to set up
-        on the phone.
+        A free reverse tethering app. Plug the phone in with a USB cable and click Connect. It works without root,
+        and there's nothing to set up on the phone.
       </p>
       <DownloadButton />
       <p class="platforms">For Windows, macOS and Linux</p>
@@ -173,6 +248,21 @@
 
   <Downloads />
 
+  <section class="faq" id="faq">
+    <div class="wrap">
+      <p class="eyebrow" use:reveal>Questions</p>
+      <h2 class="section-title" use:reveal={60}>Reverse tethering, answered.</h2>
+      <dl>
+        {#each faq as item, i (item.q)}
+          <div use:reveal={(i % 2) * 70}>
+            <dt>{item.q}</dt>
+            <dd>{item.a}</dd>
+          </div>
+        {/each}
+      </dl>
+    </div>
+  </section>
+
   <section class="credit">
     <div class="wrap" use:reveal>
       <p>
@@ -226,9 +316,6 @@
   .intro > :global(:nth-child(5)) {
     animation-delay: 300ms;
   }
-  .intro > :global(:nth-child(6)) {
-    animation-delay: 360ms;
-  }
   @keyframes rise {
     from {
       opacity: 0;
@@ -253,7 +340,9 @@
     color: var(--fg);
   }
   .name {
-    margin-bottom: -10px;
+    display: block;
+    margin-bottom: 14px;
+    line-height: 1.2;
     font-family: var(--font-display);
     font-size: clamp(20px, 2.4vw, 26px);
     font-weight: 650;
@@ -443,6 +532,39 @@
     color: var(--fg-dim);
   }
 
+  /* ---------- Questions ---------- */
+
+  .faq {
+    padding: clamp(96px, 14vw, 180px) 0;
+  }
+  .faq .section-title {
+    margin-top: 16px;
+  }
+  .faq dl {
+    margin: clamp(28px, 4vw, 44px) 0 0;
+    border-top: 1px solid var(--line);
+  }
+  .faq dl > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 48px;
+    align-items: baseline;
+    padding: clamp(20px, 2.6vw, 28px) 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .faq dt {
+    font-family: var(--font-display);
+    font-size: clamp(19px, 2vw, 23px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+  .faq dd {
+    margin: 0;
+    font-size: 16.5px;
+    color: var(--fg-dim);
+  }
+
   /* ---------- Credit and footer ---------- */
 
   .credit {
@@ -495,6 +617,7 @@
   }
   @media (max-width: 760px) {
     .uses li,
+    .faq dl > div,
     .tiles {
       grid-template-columns: 1fr;
     }
