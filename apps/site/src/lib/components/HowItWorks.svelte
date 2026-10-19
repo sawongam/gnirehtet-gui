@@ -194,9 +194,6 @@
     font-weight: 700;
     color: var(--accent-bg);
   }
-  :global(:root.dark) .word {
-    color: var(--accent);
-  }
   .sub {
     font-size: clamp(28px, 4vw, 46px);
   }

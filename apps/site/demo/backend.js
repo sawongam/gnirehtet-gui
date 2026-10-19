@@ -12,13 +12,11 @@
   const STOPPED = { state: "stopped", port: null, pid: null, message: null };
   const RUNNING = { state: "running", port: PORT, pid: 48213, message: null };
 
-  const params = new URLSearchParams(location.search);
   try {
-    // Start from the defaults on each visit; the theme comes from the page.
-    const theme = params.get("theme") === "dark" ? "dark" : "light";
+    // Start from the defaults on each visit, in the page's light theme.
     localStorage.setItem(
       "gnirehtet-gui.settings",
-      JSON.stringify({ port: PORT, dnsServers: "", routes: "", theme }),
+      JSON.stringify({ port: PORT, dnsServers: "", routes: "", theme: "light" }),
     );
   } catch {
     // Storage blocked: the app falls back to its defaults.

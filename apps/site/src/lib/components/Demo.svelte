@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { base } from "$app/paths";
-  import { theme } from "$lib/theme.svelte";
   import { inview } from "$lib/reveal";
   import { release } from "$lib/release.svelte";
 
@@ -142,9 +141,8 @@
       else manual = true;
     };
     frame.addEventListener("load", onLoad);
-    // Set here, not in markup, so the app starts in the page's theme and a
-    // later theme switch does not reload it.
-    frameSrc = `${base}/demo/${theme.dark ? "?theme=dark" : ""}`;
+    // Set here, not in markup, so the load listener is attached first.
+    frameSrc = `${base}/demo/`;
     return () => frame.removeEventListener("load", onLoad);
   });
 
@@ -153,20 +151,6 @@
     if (demo) demo.version = release.version;
   });
 
-  // Follow the page's theme without reloading the app.
-  $effect(() => {
-    const dark = theme.dark;
-    const doc = frame?.contentDocument;
-    if (!loaded || !doc) return;
-    doc.documentElement.classList.toggle("dark", dark);
-    try {
-      const key = "gnirehtet-gui.settings";
-      const settings = JSON.parse(localStorage.getItem(key) ?? "{}");
-      localStorage.setItem(key, JSON.stringify({ ...settings, theme: dark ? "dark" : "light" }));
-    } catch {
-      // Only affects the next visit.
-    }
-  });
 
 </script>
 

@@ -54,38 +54,6 @@
   --gutter: clamp(16px, 4vw, 40px);
 }
 
-:root.dark {
-  color-scheme: dark;
-
-  --page: #1b1b1f;
-  --raised: #26262b;
-  --fg: #ffffff;
-  --fg-dim: rgb(255 255 255 / 0.66);
-  --fg-faint: rgb(255 255 255 / 0.42);
-  --line: rgb(255 255 255 / 0.08);
-  --fill: rgb(255 255 255 / 0.08);
-  --fill-hover: rgb(255 255 255 / 0.13);
-  --card-shadow: 0 0 0 1px rgb(0 0 6 / 0.2), 0 1px 3px 1px rgb(0 0 6 / 0.2);
-  --window-shadow: 0 0 0 1px rgb(255 255 255 / 0.07), 0 2px 6px rgb(0 0 0 / 0.3), 0 24px 60px -10px rgb(0 0 0 / 0.55),
-    0 60px 120px -30px rgb(10 30 80 / 0.6);
-
-  --accent: #81d0ff;
-  --accent-ring: rgb(120 174 237 / 0.5);
-  --success: #78e9ab;
-  --success-dot: #2ec27e;
-  --error: #ff938c;
-
-  --titlebar: #2e2e32;
-  --titlebar-fg: rgb(255 255 255 / 0.85);
-
-  --wallpaper: radial-gradient(70% 60% at 15% 100%, #1f4a86 0%, transparent 70%),
-    radial-gradient(60% 55% at 100% 0%, #22385c 0%, transparent 70%), #1b1d26;
-  --diagram: radial-gradient(130% 110% at 0% 100%, rgb(31 74 134 / 0.45), transparent 65%), #1b1d26;
-  --cable: #4a4a52;
-  --device: #0e0e11;
-  --device-screen: #2a2a2f;
-}
-
 *,
 *::before,
 *::after {
@@ -111,15 +79,6 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow-x: clip;
-}
-
-/* Theme switches cross-fade instead of snapping. */
-:root.theme-anim,
-:root.theme-anim * {
-  transition:
-    background-color 350ms var(--ease),
-    color 350ms var(--ease),
-    border-color 350ms var(--ease) !important;
 }
 
 h1,
