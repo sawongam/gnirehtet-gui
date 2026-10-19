@@ -15,9 +15,10 @@ the Android client, setting up the adb tunnel, and cleaning up when you
 disconnect or unplug.
 
 <p align="center">
-  <img src="docs/screenshots/connected-light.png" alt="Gnirehtet connected to a phone, light theme" width="45%">
-  &nbsp;
-  <img src="docs/screenshots/connected-dark.png" alt="Gnirehtet connected to a phone, dark theme" width="45%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/flow-dark.gif">
+    <img src="docs/screenshots/flow-light.gif" alt="Plugging in a phone, allowing USB debugging, clicking Connect, accepting the VPN prompt and getting connected" width="720">
+  </picture>
 </p>
 
 It uses the unmodified gnirehtet **v2.5.1** relay and Android client; this project
