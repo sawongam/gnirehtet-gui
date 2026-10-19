@@ -7,6 +7,6 @@ gnirehtet v2.5.1 relay.
 The file is not committed. Create it with:
 
 ```bash
-cd apps/desktop && npm run setup                                   # this machine
+cd apps/desktop && pnpm run setup                                      # this machine
 node ../../scripts/fetch-upstream.mjs --target x86_64-pc-windows-msvc  # another target
 ```

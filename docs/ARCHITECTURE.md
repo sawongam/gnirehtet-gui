@@ -146,7 +146,7 @@ the USB device.
 
 ## Packaging
 
-`scripts/fetch-upstream.mjs` (`npm run setup`) prepares the two bundled files:
+`scripts/fetch-upstream.mjs` (`pnpm run setup`) prepares the two bundled files:
 
 - `resources/gnirehtet.apk`
 - `apps/desktop/src-tauri/binaries/gnirehtet-relay-<target-triple>[.exe]`

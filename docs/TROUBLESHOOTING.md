@@ -107,7 +107,7 @@ and click **Connect** and then **Disconnect**.
 ## "The relay program is missing" / "The gnirehtet client APK is missing"
 
 The installation is incomplete. Reinstall the app. If you built it yourself, run
-`npm run setup` in `apps/desktop` before building (see
+`pnpm run setup` in `apps/desktop` before building (see
 [DEVELOPMENT.md](DEVELOPMENT.md)).
 
 ## Reporting a bug

@@ -4,7 +4,7 @@
 
 - **Rust 1.88.** `rust-toolchain.toml` pins it, so [rustup](https://rustup.rs)
   installs it automatically.
-- **Node.js 20.19+ or 22.12+** with npm.
+- **Node.js 20.19+ or 22.12+** with pnpm (`corepack enable` or `npm install -g pnpm`).
 - **adb**, and an Android phone for manual testing.
 - **System libraries for Tauri:**
 
@@ -23,12 +23,12 @@ For more detail, see Tauri's [prerequisites guide](https://v2.tauri.app/start/pr
 ```bash
 git clone https://github.com/sawongam/gnirehtet-gui.git
 cd gnirehtet-gui/apps/desktop
-npm install
-npm run setup
-npm run tauri dev
+pnpm install
+pnpm run setup
+pnpm tauri dev
 ```
 
-`npm run setup` runs `scripts/fetch-upstream.mjs`. It places the pinned gnirehtet
+`pnpm run setup` runs `scripts/fetch-upstream.mjs`. It places the pinned gnirehtet
 v2.5.1 relay and APK where the build expects them, after verifying their
 SHA-256 checksums. Downloads are cached in `target/upstream-cache`. The build
 fails without these files, because Tauri checks for the bundled relay at compile
@@ -78,8 +78,8 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 
 # Frontend (from apps/desktop)
-npm run check   # svelte-check and TypeScript
-npm test        # vitest
+pnpm check  # svelte-check and TypeScript
+pnpm test   # vitest
 ```
 
 The Rust tests do not need a phone. They use small shell scripts that stand in
@@ -116,7 +116,7 @@ Before a release, go through these with a real phone:
 
 ```bash
 cd apps/desktop
-npm run tauri build
+pnpm tauri build
 ```
 
 Bundles are written to `target/release/bundle/`. Build each platform on that
@@ -124,7 +124,7 @@ platform, or use the release workflow.
 
 On Arch Linux and other distributions with very recent toolchains, the AppImage
 step can fail with `failed to run linuxdeploy`. linuxdeploy's bundled `strip`
-does not understand newer ELF sections. Build with `NO_STRIP=true npm run tauri
+does not understand newer ELF sections. Build with `NO_STRIP=true pnpm tauri
 build`. This does not affect the `.deb` and `.rpm`, and CI builds on Ubuntu
 22.04, where the problem does not occur.
 

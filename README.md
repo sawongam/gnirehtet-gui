@@ -111,10 +111,10 @@ computer, but you never have to run it yourself.
 ```bash
 git clone https://github.com/sawongam/gnirehtet-gui.git
 cd gnirehtet-gui/apps/desktop
-npm install
-npm run setup        # fetches the pinned gnirehtet relay and APK (checksum-verified)
-npm run tauri dev    # run in development
-npm run tauri build  # build installers into target/release/bundle/
+pnpm install
+pnpm run setup    # fetches the pinned gnirehtet relay and APK (checksum-verified)
+pnpm tauri dev    # run in development
+pnpm tauri build  # build installers into target/release/bundle/
 ```
 
 Prerequisites (Rust 1.88, Node.js 20.19+, system libraries) and the project layout

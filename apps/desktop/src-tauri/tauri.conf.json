@@ -4,9 +4,9 @@
   "mainBinaryName": "gnirehtet-gui",
   "identifier": "io.github.sawongam.gnirehtet-gui",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "pnpm build",
     "frontendDist": "../build"
   },
   "app": {
