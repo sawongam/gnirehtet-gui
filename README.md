@@ -8,7 +8,8 @@ cable. No root, no Wi-Fi hotspot, nothing to configure on the phone. Runs on
 Linux, Windows and macOS.
 
 This is a desktop app for [gnirehtet](https://github.com/Genymobile/gnirehtet),
-the reverse tethering tool by Genymobile. Plug the phone in, click **Connect**,
+the reverse tethering tool by Genymobile. It is an independent project, not
+affiliated with or endorsed by Genymobile. Plug the phone in, click **Connect**,
 accept the VPN prompt on the phone, and it is online. The app handles the parts
 of gnirehtet that usually happen in a terminal: starting the relay, installing
 the Android client, setting up the adb tunnel, and cleaning up when you
@@ -128,6 +129,13 @@ are described in the [development guide](docs/DEVELOPMENT.md).
 - [Development](docs/DEVELOPMENT.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
+
+## Why this exists
+
+When my mobile network was having issues, gnirehtet was a lifesaver: it let me
+use my laptop's internet on my phone over USB. I built this app to give
+something back, for anyone in the same situation, or anyone who would rather
+click a button than use a terminal.
 
 ## License
 
