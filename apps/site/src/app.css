@@ -33,6 +33,8 @@
 
   --wallpaper: radial-gradient(70% 60% at 15% 100%, #a9c9f5 0%, transparent 70%),
     radial-gradient(60% 55% at 100% 0%, #d6c8f2 0%, transparent 70%), #eef1f7;
+  /* Calmer, for the smaller How it works card: the wallpaper's corners crowd it. */
+  --diagram: radial-gradient(130% 110% at 0% 100%, rgb(169 201 245 / 0.5), transparent 65%), #eff2f8;
   --cable: #b9bac2;
   --device: #26262b;
   --device-screen: #f3f3f5;
@@ -76,6 +78,7 @@
 
   --wallpaper: radial-gradient(70% 60% at 15% 100%, #1f4a86 0%, transparent 70%),
     radial-gradient(60% 55% at 100% 0%, #3d2f66 0%, transparent 70%), #1b1d26;
+  --diagram: radial-gradient(130% 110% at 0% 100%, rgb(31 74 134 / 0.45), transparent 65%), #1b1d26;
   --cable: #4a4a52;
   --device: #0e0e11;
   --device-screen: #2a2a2f;
@@ -91,6 +94,9 @@ html {
   background: var(--page);
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  /* The How it works steps grow and shrink on their own. With scroll
+     anchoring the browser scrolls to follow them, moving the page. */
+  overflow-anchor: none;
 }
 
 body {

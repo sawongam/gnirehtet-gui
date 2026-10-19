@@ -215,7 +215,7 @@
     margin: 0;
     padding: clamp(12px, 3vw, 32px);
     border-radius: 28px;
-    background: var(--wallpaper);
+    background: var(--diagram);
   }
   svg {
     display: block;

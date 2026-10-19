@@ -166,14 +166,16 @@ for Tauri with a scripted phone.
 ```bash
 cd apps/site
 pnpm install
-pnpm demo        # builds the demo into static/demo (again after UI changes)
-pnpm dev         # http://localhost:1440
+pnpm dev         # http://localhost:1440; builds the demo first if needed
+pnpm demo        # rebuilds the demo into static/demo after UI changes
 ```
 
-The *Site* workflow builds it with `BASE_PATH=/gnirehtet-gui` and publishes it
-to GitHub Pages on pushes to `prod`, so it always names the released version.
-The download links follow the release file names in `src/lib/site.ts`; keep
-them in step with the *Rename installers* step too.
+The *Site* workflow builds it and publishes it to GitHub Pages at
+<https://gnirehtet.sangamadhikari.com> on pushes to `prod`. A release doesn't need a redeploy: the
+page asks the GitHub API for the latest release when it opens and links its
+files, matched by the patterns in `src/lib/site.ts`
+(`src/lib/release.svelte.ts`). The `Cargo.toml` version is only the fallback
+for when GitHub can't be reached.
 
 ## Updating gnirehtet
 

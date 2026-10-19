@@ -2,7 +2,8 @@ name: Site
 
 # Builds the landing page (apps/site), including the live demo built from
 # apps/desktop, and publishes it to GitHub Pages. It runs from prod, like
-# releases, so the download links on the page name a published version.
+# releases. Releases don't need a redeploy: the page asks the GitHub API for
+# the latest release when it opens and links that release's files.
 on:
   push:
     branches: [prod]
@@ -44,10 +45,9 @@ jobs:
         working-directory: apps/site
       - run: pnpm check
         working-directory: apps/site
+      # Served from the root of gnirehtet.sangamadhikari.com, so no BASE_PATH.
       - run: pnpm build
         working-directory: apps/site
-        env:
-          BASE_PATH: /${{ github.event.repository.name }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/site/build

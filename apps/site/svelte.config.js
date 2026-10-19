@@ -8,7 +8,8 @@ const config = {
   kit: {
     adapter: adapter(),
     paths: {
-      // "/gnirehtet-gui" on GitHub Pages; empty for a custom domain or locally.
+      // Empty on the custom domain and locally; "/gnirehtet-gui" if it's ever
+      // served from sawongam.github.io/gnirehtet-gui again.
       base: process.env.BASE_PATH ?? "",
     },
   },

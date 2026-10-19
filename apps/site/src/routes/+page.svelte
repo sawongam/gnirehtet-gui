@@ -70,7 +70,7 @@
   <meta property="og:title" content="Gnirehtet" />
   <meta property="og:description" content={DESCRIPTION} />
   <meta property="og:type" content="website" />
-  <meta property="og:image" content="https://sawongam.github.io{base}/og.png" />
+  <meta property="og:image" content="https://gnirehtet.sangamadhikari.com/og.png" />
   <meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
 
