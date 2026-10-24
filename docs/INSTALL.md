@@ -35,6 +35,25 @@ sudo dnf install ./gnirehtet-gui-*-linux-x64.rpm       # Fedora / RHEL
 sudo zypper install ./gnirehtet-gui-*-linux-x64.rpm    # openSUSE
 ```
 
+### Arch Linux, Manjaro, EndeavourOS
+
+The [`gnirehtet-gui-bin`](https://aur.archlinux.org/packages/gnirehtet-gui-bin)
+AUR package installs the release build, along with `adb` (`android-tools`):
+
+```bash
+yay -S gnirehtet-gui-bin       # or paru, or any AUR helper
+```
+
+Without an AUR helper:
+
+```bash
+git clone https://aur.archlinux.org/gnirehtet-gui-bin.git
+cd gnirehtet-gui-bin
+makepkg -si
+```
+
+To remove it: `sudo pacman -R gnirehtet-gui-bin`.
+
 ### Other Linux distributions (AppImage)
 
 ```bash
@@ -45,7 +64,7 @@ chmod +x gnirehtet-gui-*-linux-x64.AppImage
 If the AppImage does not start and mentions FUSE, install your distribution's
 `fuse2` / `libfuse2` package, or run it with `--appimage-extract-and-run`.
 
-On Arch Linux you can also build from source (see [DEVELOPMENT.md](DEVELOPMENT.md)).
+On any distribution you can also build from source (see [DEVELOPMENT.md](DEVELOPMENT.md)).
 
 ### Windows 10 and 11
 

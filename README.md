@@ -62,6 +62,7 @@ Download the file for your system from the
 | macOS, Intel | `gnirehtet-gui-<version>-macos-intel.dmg` |
 | Debian, Ubuntu, Mint | `gnirehtet-gui-<version>-linux-x64.deb` |
 | Fedora, openSUSE | `gnirehtet-gui-<version>-linux-x64.rpm` |
+| Arch Linux, Manjaro | [`gnirehtet-gui-bin`](https://aur.archlinux.org/packages/gnirehtet-gui-bin) from the AUR: `yay -S gnirehtet-gui-bin` |
 | Other Linux | `gnirehtet-gui-<version>-linux-x64.AppImage` |
 
 The app also needs **adb** (Android platform-tools). The
