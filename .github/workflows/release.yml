@@ -3,7 +3,7 @@ name: Release
 # Every push to prod runs CI. If the app version has no release yet, it then
 # builds installers for every platform into a draft release v<version>, renames
 # them after the system they are for, checks that all of them are there, adds
-# SHA256SUMS.txt and publishes the release.
+# SHA256SUMS.txt and publishes the release, then updates the AUR package.
 # Pushes that keep the same version only run CI.
 on:
   push:
@@ -185,3 +185,55 @@ jobs:
             "https://uploads.github.com/$RELEASE/assets?name=SHA256SUMS.txt"
       - name: Publish
         run: gh api -X PATCH "$RELEASE" -F draft=false -f make_latest=true
+
+  # Pushes the new version to the gnirehtet-gui-bin AUR package, from the
+  # PKGBUILD in packaging/aur. Needs the AUR_SSH_PRIVATE_KEY secret: the private
+  # half of an SSH key added to the AUR account that maintains the package.
+  aur:
+    name: Update AUR package
+    needs: [prepare, publish]
+    runs-on: ubuntu-22.04
+    container: archlinux:base-devel
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - run: pacman -Syu --noconfirm --needed git openssh
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build and push gnirehtet-gui-bin
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          version=${TAG#v}
+          install -dm700 ~/.ssh
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          # Host key checked against the fingerprint published on aur.archlinux.org.
+          echo 'aur.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEuBKrPzbawxA/k2g6NcyV5jmqwJ2s+zpgZGZ7tpLIcN' > ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/aur -o IdentitiesOnly=yes"
+
+          aur="$RUNNER_TEMP/aur"
+          git clone ssh://aur@aur.archlinux.org/gnirehtet-gui-bin.git "$aur"
+          cp packaging/aur/PKGBUILD "$aur/"
+          cd "$aur"
+          deb="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/gnirehtet-gui-$version-linux-x64.deb"
+          sum=$(curl -fsSL "$deb" | sha256sum | cut -d' ' -f1)
+          sed -i -e "s/^pkgver=.*/pkgver=$version/" -e "s/^pkgrel=.*/pkgrel=1/" \
+            -e "s/^sha256sums=.*/sha256sums=('$sum')/" PKGBUILD
+
+          # makepkg refuses to run as root. -d skips the dependency check: the
+          # build only unpacks the .deb, so a successful build proves the
+          # PKGBUILD and checksum are right.
+          useradd -m builder
+          chown -R builder "$aur"
+          su builder -c "makepkg -fd --noconfirm && makepkg --printsrcinfo > .SRCINFO"
+
+          git config --global --add safe.directory "$aur"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          if git diff --cached --quiet; then
+            echo "AUR package is already at $version."
+            exit 0
+          fi
+          git commit -m "Update to $version"
+          git push origin HEAD:master

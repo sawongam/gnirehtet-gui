@@ -1,0 +1,25 @@
+# Maintainer: sawongam
+
+pkgname=gnirehtet-gui-bin
+_pkgname=gnirehtet-gui
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Desktop app for reverse tethering Android over USB, built on Genymobile's gnirehtet"
+arch=('x86_64')
+url="https://github.com/sawongam/gnirehtet-gui"
+license=('Apache-2.0')
+depends=('android-tools' 'cairo' 'dbus' 'gcc-libs' 'gdk-pixbuf2' 'glib2' 'glibc' 'gtk3' 'hicolor-icon-theme' 'libsoup3' 'webkit2gtk-4.1')
+optdepends=('android-udev: udev rules so adb can access the phone without root')
+provides=("$_pkgname")
+conflicts=("$_pkgname")
+options=('!strip' '!debug')
+source=("$_pkgname-$pkgver.deb::$url/releases/download/v$pkgver/$_pkgname-$pkgver-linux-x64.deb")
+sha256sums=('b93743b37b0477f0648b31e764197f037ab94446d73af6fe7dd6ef72f70fa74d')
+
+package() {
+  bsdtar -xf data.tar.gz -C "$pkgdir"
+  chmod -R u=rwX,go=rX "$pkgdir/usr"
+  install -dm755 "$pkgdir/usr/share/licenses/$pkgname"
+  ln -s "/usr/lib/$_pkgname/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  ln -s "/usr/lib/$_pkgname/NOTICE" "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
+}

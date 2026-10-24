@@ -1,0 +1,27 @@
+pkgbase = gnirehtet-gui-bin
+	pkgdesc = Desktop app for reverse tethering Android over USB, built on Genymobile's gnirehtet
+	pkgver = 1.0.0
+	pkgrel = 1
+	url = https://github.com/sawongam/gnirehtet-gui
+	arch = x86_64
+	license = Apache-2.0
+	depends = android-tools
+	depends = cairo
+	depends = dbus
+	depends = gcc-libs
+	depends = gdk-pixbuf2
+	depends = glib2
+	depends = glibc
+	depends = gtk3
+	depends = hicolor-icon-theme
+	depends = libsoup3
+	depends = webkit2gtk-4.1
+	optdepends = android-udev: udev rules so adb can access the phone without root
+	provides = gnirehtet-gui
+	conflicts = gnirehtet-gui
+	options = !strip
+	options = !debug
+	source = gnirehtet-gui-1.0.0.deb::https://github.com/sawongam/gnirehtet-gui/releases/download/v1.0.0/gnirehtet-gui-1.0.0-linux-x64.deb
+	sha256sums = b93743b37b0477f0648b31e764197f037ab94446d73af6fe7dd6ef72f70fa74d
+
+pkgname = gnirehtet-gui-bin
