@@ -8,7 +8,8 @@ cable. No root, no Wi-Fi hotspot, nothing to configure on the phone. Runs on
 Linux, Windows and macOS.
 
 This is a desktop app for [gnirehtet](https://github.com/Genymobile/gnirehtet),
-the reverse tethering tool by Genymobile. Plug the phone in, click **Connect**,
+the reverse tethering tool by Genymobile. It is an independent project, not
+affiliated with or endorsed by Genymobile. Plug the phone in, click **Connect**,
 accept the VPN prompt on the phone, and it is online. The app handles the parts
 of gnirehtet that usually happen in a terminal: starting the relay, installing
 the Android client, setting up the adb tunnel, and cleaning up when you
@@ -77,7 +78,25 @@ system and for preparing the phone.
 4. Accept the *Connection request* (VPN) prompt on the phone.
 
 The phone now uses the computer's connection. Click **Disconnect** to stop.
+
+Closing the window while the phone is connected keeps Gnirehtet running in the
+system tray, so the phone stays online. Click the tray icon, choose **Show
+Gnirehtet** from its menu, or launch the app again to reopen the window.
+Choose **Quit** from the tray menu to stop the VPN and relay and exit. With
+nothing connected, closing the window simply quits.
+
+On Linux the tray needs `libayatana-appindicator3` and a panel that shows tray
+icons (KDE, Xfce, Cinnamon, waybar, or GNOME with the AppIndicator extension).
+Without one, closing the window while connected asks before disconnecting and
+quitting.
 If something goes wrong, see [Troubleshooting](docs/TROUBLESHOOTING.md).
+
+### Run at startup
+
+Open **Preferences → Startup** and enable **Run at startup** to launch the
+app when you sign in. This is off by default and can be turned off in the same
+place. Startup registration is stored by the operating system, not in browser
+storage. Starting the app does not automatically connect your phone.
 
 ## Limitations
 
@@ -128,6 +147,13 @@ are described in the [development guide](docs/DEVELOPMENT.md).
 - [Development](docs/DEVELOPMENT.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
+
+## Why this exists
+
+When my mobile network was having issues, gnirehtet was a lifesaver: it let me
+use my laptop's internet on my phone over USB. I built this app to give
+something back, for anyone in the same situation, or anyone who would rather
+click a button than use a terminal.
 
 ## License
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StartupPreferences from "./StartupPreferences.svelte";
   import { onMount } from "svelte";
   import { api, isTauri } from "$lib/api";
   import { app } from "$lib/app.svelte";
@@ -115,6 +116,8 @@
       </div>
     </div>
   </section>
+
+  <StartupPreferences />
 
   <section class="group">
     <div class="group-head"><h2 class="group-title">Appearance</h2></div>

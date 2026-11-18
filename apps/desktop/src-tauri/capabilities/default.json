@@ -4,7 +4,6 @@
   "description": "Permissions for the main window",
   "windows": ["main"],
   "permissions": [
-    "core:default",
-    "core:window:allow-destroy"
+    "core:default"
   ]
 }

@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0]
+
+### Added
+
+- Optional **Run at startup** preference, backed by the operating system's
+  current-user startup registration with error handling and retry.
+
+### Changed
+
+- Closing the window while a phone is connected hides it in the system tray and
+  keeps the connection running. The tray menu can restore the window or quit
+  and stop the VPN. Without a tray, closing asks before disconnecting.
+- Launching the app while it is already running shows the existing window.
+
 ## [1.0.0]
 
 First stable release.
@@ -56,6 +70,7 @@ First public release.
 - Installers: `.deb`, `.rpm`, AppImage, `.msi`, NSIS `.exe` and `.dmg`, built by
   the release workflow.
 
-[Unreleased]: https://github.com/sawongam/gnirehtet-gui/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/sawongam/gnirehtet-gui/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/sawongam/gnirehtet-gui/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/sawongam/gnirehtet-gui/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/sawongam/gnirehtet-gui/releases/tag/v0.1.0

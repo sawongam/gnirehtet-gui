@@ -1,6 +1,7 @@
 //! IPC commands. Each one runs on a blocking worker thread: adb calls can
 //! take seconds, and synchronous Tauri commands would run on the UI thread.
 
+use crate::autostart::Autostart;
 use crate::error::{CommandError, CommandResult};
 use crate::paths::{self, ToolPaths};
 use crate::session::Session;
@@ -8,7 +9,7 @@ use crate::types::{
     AdbInfo, ConnectOptions, DeviceInfo, Environment, RelayStatus, SessionSnapshot,
 };
 use std::sync::Arc;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 async fn blocking<T, F>(session: &State<'_, Arc<Session>>, f: F) -> CommandResult<T>
 where
@@ -73,6 +74,28 @@ pub fn get_environment(app: AppHandle, tools: State<'_, ToolPaths>) -> Environme
         apk_path: tools.apk.display().to_string(),
         apk_found: tools.apk.is_file(),
     }
+}
+
+/// Whether the app is registered to start at sign-in.
+#[tauri::command]
+pub async fn get_autostart(app: AppHandle) -> CommandResult<bool> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Autostart>().is_enabled())
+        .await
+        .map_err(|err| CommandError::new("INTERNAL", err.to_string()))?
+}
+
+/// Registers or unregisters start at sign-in; returns the resulting state.
+#[tauri::command]
+pub async fn set_autostart(app: AppHandle, enabled: bool) -> CommandResult<bool> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Autostart>().set_enabled(enabled))
+        .await
+        .map_err(|err| CommandError::new("INTERNAL", err.to_string()))?
+}
+
+/// Exits the app. `RunEvent::Exit` stops the relay and the phone's VPN.
+#[tauri::command]
+pub fn quit(app: AppHandle) {
+    app.exit(0);
 }
 
 const REPO_URL: &str = "https://github.com/sawongam/gnirehtet-gui";

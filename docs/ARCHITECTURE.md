@@ -89,6 +89,14 @@ serial of the device whose client was started.
 - **Disconnect** stops the client on the device, removes the tunnel, and stops
   the relay. The computer side is always stopped, even when the phone can no
   longer be reached.
+- **Close.** Handled natively in `tray.rs`. With nothing connected, the window
+  closes and the app exits. While connected, the window hides if a tray icon
+  is visible; the tray menu restores the window or exits. With no visible tray
+  (on Linux: `libayatana-appindicator3` missing, checked before the tray is
+  created, or no StatusNotifier host on the session bus, checked at close
+  time), the close is cancelled and the webview asks to disconnect and quit.
+- **Second launch.** `tauri-plugin-single-instance` brings the running window
+  back instead of starting another instance and relay.
 - **Exit.** On `RunEvent::Exit`, the relay is stopped immediately and the
   phone gets a bounded amount of time to stop its client. The app never touches
   a device it did not start a client on.
@@ -116,6 +124,18 @@ The pure transition helpers live in `session-logic.ts` and are unit-tested.
 Settings (port, DNS, routes, theme) are validated and stored in `localStorage`
 (`settings.svelte.ts`).
 
+### Startup preference
+
+`autostart.rs` registers the app for the current user at sign-in through
+`auto-launch` (Windows Run value, XDG autostart entry, or macOS launch agent).
+On Linux the AppImage file is registered rather than its temporary mount.
+The path is quoted on Windows and Linux so locations with spaces launch, and
+an existing registration is rewritten at launch (release builds) so it follows
+the app if it moves. It is opt-in. Preferences reads the OS setting, disables changes while
+loading or saving, and requires a fresh read after failures. The browser demo
+cannot change startup registration. The app opens normally at sign-in; no
+phone connection is started automatically.
+
 ### Tauri commands
 
 | Command | Description |
@@ -129,6 +149,9 @@ Settings (port, DNS, routes, theme) are validated and stored in `localStorage`
 | `repair_tunnel(serial)` | Recreate the reverse tunnel. |
 | `get_environment` | Resolved tool paths and app version (the version is shown under Preferences → About). |
 | `open_repo` | Open the project's GitHub page in the default browser. The URL is fixed in the backend. |
+| `get_autostart` | Whether the app is registered to start at sign-in. |
+| `set_autostart(enabled)` | Register or unregister start at sign-in; returns the resulting state. |
+| `quit` | Exit the app (after the webview confirmed disconnecting). |
 
 Events: `log` (a log entry), `relay-status` (relay state changes) and
 `relay-client` (client connected or disconnected, with the current count).
@@ -180,8 +203,8 @@ Installed layout on Linux:
 
 - The content security policy allows only the app's own scripts and styles and
   the Tauri IPC channel; the app loads nothing remote.
-- Capabilities are reduced to `core:default` plus window destruction (used by
-  the quit confirmation). No shell, filesystem or opener plugins are included;
+- Capabilities are reduced to `core:default`. Window hiding, quitting, the tray
+  menu and startup registration are app commands and Rust handlers. No shell, filesystem or opener plugins are included;
   the one link the app opens (its GitHub page) goes through the `open_repo`
   command, which takes no arguments.
 - Values from the UI never reach a shell unvalidated. The device serial, DNS

@@ -99,7 +99,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf
+          # libayatana-appindicator3-dev: the AppImage bundles it for the tray.
+          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev patchelf
       - name: Fetch relay and client
         run: node scripts/fetch-upstream.mjs --target ${{ matrix.target }}
       - name: Install frontend dependencies

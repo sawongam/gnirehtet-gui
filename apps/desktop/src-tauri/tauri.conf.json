@@ -53,13 +53,15 @@
     "linux": {
       "deb": {
         "recommends": [
-          "adb"
+          "adb",
+          "libayatana-appindicator3-1"
         ],
         "desktopTemplate": "linux/gnirehtet-gui.desktop"
       },
       "rpm": {
         "recommends": [
-          "android-tools"
+          "android-tools",
+          "libayatana-appindicator-gtk3"
         ],
         "desktopTemplate": "linux/gnirehtet-gui.desktop"
       }
