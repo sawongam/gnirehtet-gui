@@ -15,7 +15,14 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 serde = { version = "1", features = ["derive"] }
 log = "0.4"
+tauri-plugin-single-instance = "2"
+auto-launch = "0.5"
 gnirehtet-controller = { path = "../../../crates/gnirehtet-controller" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# Versions used by tauri's GTK stack; only needed to detect the tray.
+gio = "0.18"
+libloading = "0.7"

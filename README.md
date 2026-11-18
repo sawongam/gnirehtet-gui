@@ -78,7 +78,25 @@ system and for preparing the phone.
 4. Accept the *Connection request* (VPN) prompt on the phone.
 
 The phone now uses the computer's connection. Click **Disconnect** to stop.
+
+Closing the window while the phone is connected keeps Gnirehtet running in the
+system tray, so the phone stays online. Click the tray icon, choose **Show
+Gnirehtet** from its menu, or launch the app again to reopen the window.
+Choose **Quit** from the tray menu to stop the VPN and relay and exit. With
+nothing connected, closing the window simply quits.
+
+On Linux the tray needs `libayatana-appindicator3` and a panel that shows tray
+icons (KDE, Xfce, Cinnamon, waybar, or GNOME with the AppIndicator extension).
+Without one, closing the window while connected asks before disconnecting and
+quitting.
 If something goes wrong, see [Troubleshooting](docs/TROUBLESHOOTING.md).
+
+### Run at startup
+
+Open **Preferences → Startup** and enable **Run at startup** to launch the
+app when you sign in. This is off by default and can be turned off in the same
+place. Startup registration is stored by the operating system, not in browser
+storage. Starting the app does not automatically connect your phone.
 
 ## Limitations
 

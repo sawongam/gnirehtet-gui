@@ -10,9 +10,9 @@
 
 | System | Command |
 |--------|---------|
-| Debian, Ubuntu | `sudo apt install build-essential curl file libwebkit2gtk-4.1-dev librsvg2-dev libssl-dev` |
-| Fedora | `sudo dnf install webkit2gtk4.1-devel librsvg2-devel openssl-devel && sudo dnf group install c-development` |
-| Arch Linux | `sudo pacman -S --needed base-devel webkit2gtk-4.1 librsvg openssl` |
+| Debian, Ubuntu | `sudo apt install build-essential curl file libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev libssl-dev` |
+| Fedora | `sudo dnf install webkit2gtk4.1-devel librsvg2-devel libayatana-appindicator-gtk3-devel openssl-devel && sudo dnf group install c-development` |
+| Arch Linux | `sudo pacman -S --needed base-devel webkit2gtk-4.1 librsvg libayatana-appindicator openssl` |
 | macOS | `xcode-select --install` |
 | Windows | [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) ("Desktop development with C++") and WebView2 (preinstalled on Windows 10/11) |
 
@@ -104,8 +104,16 @@ Before a release, go through these with a real phone:
 - [ ] **Disconnect**: the VPN key icon disappears from the phone.
 - [ ] Unplug while connected: **Connection interrupted**. Plug back in: the
       tunnel is restored and the phone is online again.
-- [ ] Quit while connected: the confirmation dialog appears, and the VPN stops
-      on the phone.
+- [ ] Close while idle: the app exits.
+- [ ] Close while connected: the window disappears, the app stays in the
+      system tray, and the phone keeps working. Launching the app again
+      brings the window back instead of starting a second copy.
+- [ ] Linux without `libayatana-appindicator3` (or without a tray panel): the
+      app starts, and closing while connected asks to disconnect and quit.
+- [ ] Restore from the tray icon and **Show Gnirehtet** menu item, including
+      after minimizing: the main window is visible and focused.
+- [ ] Choose **Quit** from the tray while connected: the app exits, the relay
+      stops, and the VPN stops on the phone.
 - [ ] Unauthorized phone (revoke USB debugging authorizations): a clear message
       appears, and the phone becomes ready after accepting the prompt.
 - [ ] Two phones connected: the picker appears, and the selected phone
@@ -114,6 +122,12 @@ Before a release, go through these with a real phone:
       the port is in use and leaves the other relay alone.
 - [ ] adb missing from `PATH`: the window explains how to install it, and
       **Check again** finds it once installed.
+- [ ] **Preferences → Startup**: loading reads the OS setting; enable and
+      disable work and remain correct after reopening Preferences. A failed
+      read/write offers a retry without claiming the change succeeded.
+- [ ] Enable **Run at startup**, sign out and back in: Gnirehtet opens without
+      connecting a phone automatically. Disable it and confirm it no longer
+      launches at sign-in.
 - [ ] Custom DNS servers and port from Preferences are applied.
 - [ ] **Preferences → About** opens the GitHub page in the browser.
 

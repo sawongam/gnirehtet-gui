@@ -76,7 +76,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev
       # tauri-build requires the relay sidecar and the built frontend to exist.
       # On macOS this also builds the relay from source, as releases do.
       - name: Fetch relay and client

@@ -119,6 +119,13 @@ impl Session {
         }
     }
 
+    /// Whether exiting now would cut a phone off: a client was started or our
+    /// relay is running.
+    pub fn is_active(&self) -> bool {
+        let client_started = lock(&self.active).is_some();
+        client_started || lock(&self.relay).is_running()
+    }
+
     /// Install (or reinstall) the client APK on a device.
     pub fn install_client(&self, serial: &str) -> CommandResult<()> {
         let serial = validate_serial(serial)?;

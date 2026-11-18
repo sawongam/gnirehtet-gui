@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getCurrentWindow } from "@tauri-apps/api/window";
   import HeaderBar, { type Panel } from "$lib/components/HeaderBar.svelte";
   import Banner from "$lib/components/Banner.svelte";
   import ConnectionView from "$lib/components/ConnectionView.svelte";
@@ -8,8 +7,9 @@
   import PreferencesView from "$lib/components/PreferencesView.svelte";
   import Dialog from "$lib/components/ui/dialog.svelte";
   import Sheet from "$lib/components/ui/sheet.svelte";
+  import { listen } from "@tauri-apps/api/event";
   import { app } from "$lib/app.svelte";
-  import { isTauri } from "$lib/api";
+  import { api, isTauri } from "$lib/api";
 
   let panel = $state<Panel | null>(null);
   let quitDialogOpen = $state(false);
@@ -18,27 +18,32 @@
   async function quit() {
     quitting = true;
     await app.disconnect();
-    await getCurrentWindow().destroy();
+    try {
+      await api.quit();
+    } catch {
+      quitting = false;
+      quitDialogOpen = false;
+    }
   }
 
   onMount(() => {
     void app.start();
-    let unlistenClose: (() => void) | null = null;
+    // Sent when the window is closed while connected and there is no system
+    // tray to keep the app in: quitting would turn off the phone's VPN.
+    let unlistenQuit: (() => void) | null = null;
+    let unmounted = false;
     if (isTauri()) {
-      void getCurrentWindow()
-        .onCloseRequested((event) => {
-          // Closing with an active session would leave the phone's VPN
-          // pointing at a relay that no longer exists: confirm first.
-          if (app.sessionActive && !quitting) {
-            event.preventDefault();
-            quitDialogOpen = true;
-          }
-        })
-        .then((unlisten) => (unlistenClose = unlisten));
+      void listen("quit-requested", () => {
+        if (!quitting) quitDialogOpen = true;
+      }).then((unlisten) => {
+        if (unmounted) unlisten();
+        else unlistenQuit = unlisten;
+      });
     }
     return () => {
+      unmounted = true;
       app.stop();
-      unlistenClose?.();
+      unlistenQuit?.();
     };
   });
 </script>
@@ -65,7 +70,7 @@
 <Dialog
   bind:open={quitDialogOpen}
   title="Disconnect and quit?"
-  description="The phone is still using this connection. Quitting turns off its VPN and stops the relay."
+  description="The phone is still using this connection. Quitting turns off its VPN and stops the relay. To keep it running with the window closed, install a system tray (on Linux: libayatana-appindicator3 and a panel that shows tray icons)."
   confirmLabel={quitting ? "Disconnecting…" : "Disconnect and quit"}
   busy={quitting}
   onConfirm={quit}
