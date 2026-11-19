@@ -58,6 +58,12 @@ export type Environment = {
   apkFound: boolean;
 };
 
+/** Payload of the `adb-install-progress` event. */
+export type DownloadProgress = {
+  received: number;
+  total: number | null;
+};
+
 /** Rejection value of every command. */
 export type CommandError = {
   code: string;

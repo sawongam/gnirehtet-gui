@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fly } from "svelte/transition";
+  import { api } from "$lib/api";
   import { app } from "$lib/app.svelte";
   import { deviceStateInfo, errorHelp } from "$lib/errors";
   import { deviceName, formatDuration, isReady } from "$lib/session-logic";
@@ -29,6 +30,21 @@
   const name = $derived(device ? deviceName(device) : (app.sessionSerial ?? "the phone"));
 
   type Status = { scene: Scene; title: string; detail: string };
+
+  /** Error codes after which "Install adb" is the way forward. */
+  const INSTALL_CODES = ["ADB_MISSING", "ADB_DOWNLOAD_FAILED", "ADB_INSTALL_FAILED"];
+  const offerInstall = $derived(
+    app.adbInstallable && INSTALL_CODES.includes(app.adbError?.code ?? "ADB_MISSING"),
+  );
+
+  const mb = (bytes: number) => (bytes / 1_000_000).toFixed(1);
+  const installProgress = $derived.by(() => {
+    const p = app.adbInstall;
+    if (!p) return null;
+    const fraction = p.total ? Math.min(1, p.received / p.total) : null;
+    const label = p.total ? `${mb(p.received)} of ${mb(p.total)} MB` : p.received ? `${mb(p.received)} MB` : "Connecting…";
+    return { fraction, label };
+  });
 
   const status = $derived.by((): Status => {
     switch (app.phase) {
@@ -70,6 +86,21 @@
       default:
         if (!app.loaded) return { scene: "absent", title: "Looking for adb", detail: "" };
         if (!app.adb) {
+          if (app.adbInstall) {
+            return {
+              scene: "absent",
+              title: "Installing adb",
+              detail: "Downloading Android platform-tools from Google. This takes a moment.",
+            };
+          }
+          if (offerInstall && (app.adbError?.code ?? "ADB_MISSING") === "ADB_MISSING") {
+            return {
+              scene: "absent",
+              title: "One more thing: adb",
+              detail:
+                "adb is the small Android tool this app uses to talk to your phone over USB. Install it here with one click. No admin rights needed.",
+            };
+          }
           const help = errorHelp(app.adbError?.code ?? "ADB_MISSING");
           return { scene: "absent", title: help.title, detail: help.hint };
         }
@@ -147,7 +178,27 @@
     {/key}
 
     <div class="actions">
-      {#if app.phase === "idle" && app.loaded && !app.adb}
+      {#if app.phase === "idle" && app.loaded && !app.adb && installProgress}
+        <div class="install-progress">
+          <div
+            class="bar"
+            class:indeterminate={installProgress.fraction === null}
+            role="progressbar"
+            aria-label="Downloading adb"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={installProgress.fraction === null ? undefined : Math.round(installProgress.fraction * 100)}
+          >
+            <span style:width={installProgress.fraction === null ? null : `${installProgress.fraction * 100}%`}></span>
+          </div>
+          <p class="numeric">{installProgress.label}</p>
+        </div>
+      {:else if app.phase === "idle" && app.loaded && !app.adb}
+        {#if offerInstall}
+          <button type="button" class="btn pill suggested" onclick={() => app.installAdb()}>
+            {app.adbError?.code === "ADB_MISSING" || !app.adbError ? "Install adb" : "Try again"}
+          </button>
+        {/if}
         <button type="button" class="btn pill" onclick={refresh} disabled={refreshing}>
           {refreshing ? "Checking…" : "Check again"}
         </button>
@@ -186,6 +237,13 @@
         </button>
       {/if}
     </div>
+
+    {#if app.phase === "idle" && app.loaded && !app.adb && offerInstall && !installProgress}
+      <p class="fineprint">
+        Downloads Android platform-tools from Google, under
+        <button type="button" class="link" onclick={() => api.openAdbTerms()}>Google’s terms</button>.
+      </p>
+    {/if}
   </section>
 </div>
 
@@ -254,5 +312,69 @@
     gap: 10px;
     margin-top: 18px;
     min-height: 40px;
+  }
+
+  .install-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 240px;
+    padding-top: 6px;
+  }
+  .install-progress p {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--fg-dim);
+  }
+  .bar {
+    position: relative;
+    width: 100%;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+  }
+  .bar span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: inherit;
+    background: var(--accent-bg);
+    transition: width 200ms ease-out;
+  }
+  .bar.indeterminate span {
+    width: 35%;
+    animation: slide 1.1s ease-in-out infinite;
+  }
+  @keyframes slide {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(290%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bar.indeterminate span {
+      animation: none;
+      width: 100%;
+      opacity: 0.4;
+    }
+  }
+
+  .fineprint {
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--fg-dim);
+  }
+  .link {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
   }
 </style>

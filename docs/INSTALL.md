@@ -73,11 +73,19 @@ macOS builds are produced by CI but are less tested than Linux and Windows.
 
 ## 2. Install adb
 
-The app uses `adb` (from Android *platform-tools*) to talk to the phone. It finds
-adb on your `PATH`, then in the default Android SDK location
-(`~/Android/Sdk`, `~/Library/Android/sdk` or `%LOCALAPPDATA%\Android\Sdk`,
-or `$ANDROID_HOME`). To use a specific adb, set the `ADB` environment variable to
-its full path.
+The app uses `adb` (from Android *platform-tools*) to talk to the phone.
+
+**The easy way:** if the app does not find adb, click **Install adb**. It
+downloads Google's platform-tools into the app's own data folder. You don't need
+admin rights, and you don't need to change `PATH`. This works on Windows, macOS
+and x86-64 Linux.
+
+The app looks for adb in this order: the `ADB` environment variable, your
+`PATH`, the default Android SDK location (`~/Android/Sdk`,
+`~/Library/Android/sdk` or `%LOCALAPPDATA%\Android\Sdk`, or `$ANDROID_HOME`),
+and finally the copy it installed itself. An adb you already have always wins.
+
+To install adb yourself instead:
 
 | System | Command |
 |--------|---------|

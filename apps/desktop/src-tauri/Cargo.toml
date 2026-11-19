@@ -21,6 +21,8 @@ log = "0.4"
 tauri-plugin-single-instance = "2"
 auto-launch = "0.5"
 gnirehtet-controller = { path = "../../../crates/gnirehtet-controller" }
+ureq = { version = "2", default-features = false, features = ["tls"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Versions used by tauri's GTK stack; only needed to detect the tray.

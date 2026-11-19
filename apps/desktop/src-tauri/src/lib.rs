@@ -1,3 +1,4 @@
+mod adb_install;
 mod autostart;
 mod commands;
 mod error;
@@ -46,7 +47,10 @@ pub fn run() {
             let events: Arc<dyn EventSink> = Arc::new(WebviewEvents(app.handle().clone()));
             logger::init(Arc::clone(&events));
 
-            let tools = ToolPaths::resolve(app.path().resource_dir().ok().as_deref());
+            let tools = ToolPaths::resolve(
+                app.path().resource_dir().ok().as_deref(),
+                app.path().app_local_data_dir().ok().as_deref(),
+            );
             log::info!(
                 target: "App",
                 "adb: {} | relay: {} | client APK: {}",
@@ -81,6 +85,9 @@ pub fn run() {
         .on_window_event(tray::on_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::check_adb,
+            commands::can_install_adb,
+            commands::install_adb,
+            commands::open_adb_terms,
             commands::list_devices,
             commands::get_session,
             commands::connect,

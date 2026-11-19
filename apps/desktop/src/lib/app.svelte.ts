@@ -6,6 +6,7 @@ import type {
   ClientEvent,
   CommandError,
   DeviceInfo,
+  DownloadProgress,
   LogEntry,
   RelayStatus,
 } from "./types";
@@ -20,6 +21,10 @@ const STOPPED: RelayStatus = { state: "stopped", port: null, pid: null, message:
 class AppState {
   adb = $state<AdbInfo | null>(null);
   adbError = $state<CommandError | null>(null);
+  /** Whether the app can download adb itself on this platform. */
+  adbInstallable = $state(false);
+  /** Download progress while the app installs adb, null otherwise. */
+  adbInstall = $state<DownloadProgress | null>(null);
   devices = $state<DeviceInfo[]>([]);
   selectedSerial = $state<string | null>(null);
   relay = $state<RelayStatus>(STOPPED);
@@ -67,7 +72,11 @@ class AppState {
       onLog: (entry) => this.#onLog(entry),
       onRelayStatus: (status) => this.#onRelayStatus(status),
       onRelayClient: (event) => this.#onRelayClient(event),
+      onAdbInstallProgress: (progress) => {
+        if (this.adbInstall) this.adbInstall = progress;
+      },
     });
+    this.adbInstallable = await api.canInstallAdb().catch(() => false);
     await this.#restoreSession();
     await this.checkAdb();
     await this.refreshDevices();
@@ -89,6 +98,21 @@ class AppState {
     } catch (e) {
       this.adb = null;
       this.adbError = toCommandError(e);
+    }
+  }
+
+  /** Download Google's platform-tools and switch to its adb. */
+  async installAdb() {
+    if (this.adbInstall) return;
+    this.adbInstall = { received: 0, total: null };
+    try {
+      this.adb = await api.installAdb();
+      this.adbError = null;
+      await this.refreshDevices();
+    } catch (e) {
+      this.adbError = toCommandError(e);
+    } finally {
+      this.adbInstall = null;
     }
   }
 

@@ -8,7 +8,23 @@ export type ErrorHelp = {
 const HELP: Record<string, ErrorHelp> = {
   ADB_MISSING: {
     title: "adb was not found",
-    hint: "Install Android platform-tools and make sure adb is on your PATH, or set the ADB environment variable to its location, then restart the app.",
+    hint: "Install Android platform-tools (from your package manager or developer.android.com), then click Check again.",
+  },
+  ADB_DOWNLOAD_FAILED: {
+    title: "Could not download adb",
+    hint: "Check your internet connection and try again. Open the Log for details.",
+  },
+  ADB_INSTALL_FAILED: {
+    title: "Could not install adb",
+    hint: "Something on this computer blocked the install. Open the Log for details, then try again.",
+  },
+  ADB_INSTALL_UNSUPPORTED: {
+    title: "adb was not found",
+    hint: "Google does not publish adb for this computer. Install Android platform-tools from your package manager, then click Check again.",
+  },
+  ADB_INSTALL_BUSY: {
+    title: "Installing adb",
+    hint: "adb is already being installed.",
   },
   ADB_PATH_INVALID: {
     title: "adb could not be run",

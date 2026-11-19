@@ -13,7 +13,7 @@ use crate::types::{
     RelayStatus, SessionSnapshot,
 };
 use gnirehtet_controller::gnirehtet_adb::{
-    validate_dns_servers, validate_routes, AdbClient, VpnOptions,
+    validate_dns_servers, validate_routes, AdbClient, AdbConfig, VpnOptions,
 };
 use gnirehtet_controller::{RelayStdio, RelaySupervisor, DEFAULT_RELAY_PORT};
 use log::{info, warn};
@@ -21,7 +21,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -47,7 +47,8 @@ struct ActiveSession {
 }
 
 pub struct Session {
-    adb: AdbClient,
+    /// Replaced when the app installs its own adb.
+    adb: RwLock<AdbClient>,
     relay: Mutex<RelaySupervisor>,
     active: Mutex<Option<ActiveSession>>,
     operation: Mutex<()>,
@@ -74,7 +75,7 @@ fn now_ms() -> u64 {
 impl Session {
     pub fn new(adb: AdbClient, relay_binary: PathBuf, events: Arc<dyn EventSink>) -> Arc<Self> {
         Arc::new(Self {
-            adb,
+            adb: RwLock::new(adb),
             relay: Mutex::new(RelaySupervisor::new(relay_binary)),
             active: Mutex::new(None),
             operation: Mutex::new(()),
@@ -84,9 +85,29 @@ impl Session {
         })
     }
 
+    fn adb(&self) -> AdbClient {
+        self.adb
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    pub fn adb_path(&self) -> PathBuf {
+        self.adb().adb_path().to_path_buf()
+    }
+
+    /// Use a different adb from now on (e.g. one the app just installed).
+    pub fn set_adb_path(&self, adb_path: PathBuf) {
+        let mut adb = self.adb.write().unwrap_or_else(PoisonError::into_inner);
+        *adb = AdbClient::new(AdbConfig {
+            adb_path,
+            ..adb.config().clone()
+        });
+    }
+
     pub fn check_adb(&self) -> CommandResult<AdbInfo> {
         let status = self
-            .adb
+            .adb()
             .ensure_adb()
             .map_err(|err| CommandError::adb(err, "ADB_PATH_INVALID"))?;
         Ok(AdbInfo {
@@ -97,7 +118,7 @@ impl Session {
 
     pub fn list_devices(&self) -> CommandResult<Vec<DeviceInfo>> {
         let devices = self
-            .adb
+            .adb()
             .list_devices()
             .map_err(|err| CommandError::adb(err, "ADB_FAILED"))?;
         Ok(devices
@@ -131,7 +152,7 @@ impl Session {
         let serial = validate_serial(serial)?;
         let _operation = lock(&self.operation);
         info!(target: TAG, "Installing the client on {serial}");
-        self.adb
+        self.adb()
             .install(Some(serial))
             .map_err(|err| CommandError::adb(err, "INSTALL_FAILED"))?;
         info!(target: TAG, "Client installed on {serial}");
@@ -148,7 +169,7 @@ impl Session {
             .or_else(|| lock(&self.relay).port())
             .unwrap_or(DEFAULT_RELAY_PORT);
         info!(target: TAG, "Restoring the tunnel for {serial} (port {port})");
-        self.adb
+        self.adb()
             .tunnel(Some(serial), port)
             .map_err(|err| CommandError::adb(err, "TUNNEL_FAILED"))
     }
@@ -258,16 +279,16 @@ impl Session {
     fn start_client(&self, serial: &str, opts: &VpnOptions<'_>) -> CommandResult<()> {
         let serial = Some(serial);
         if self
-            .adb
+            .adb()
             .install_if_needed(serial)
             .map_err(|err| CommandError::adb(err, "INSTALL_FAILED"))?
         {
             info!(target: TAG, "Client installed");
         }
-        self.adb
+        self.adb()
             .tunnel(serial, opts.port)
             .map_err(|err| CommandError::adb(err, "TUNNEL_FAILED"))?;
-        self.adb
+        self.adb()
             .start_client(serial, opts)
             .map_err(|err| CommandError::adb(err, "CLIENT_START_FAILED"))
     }
@@ -275,14 +296,14 @@ impl Session {
     /// Best effort: returns whether the device acknowledged the stop.
     fn stop_client(&self, serial: &str) -> bool {
         info!(target: TAG, "Stopping the client on {serial}");
-        let stopped = match self.adb.stop(Some(serial)) {
+        let stopped = match self.adb().stop(Some(serial)) {
             Ok(()) => true,
             Err(err) => {
                 warn!(target: TAG, "Could not stop the client on {serial}: {err}");
                 false
             }
         };
-        let _ = self.adb.remove_tunnel(Some(serial));
+        let _ = self.adb().remove_tunnel(Some(serial));
         stopped
     }
 
