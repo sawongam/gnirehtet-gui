@@ -5,6 +5,9 @@ describe("errorHelp", () => {
   it("explains every code the backend produces", () => {
     const codes = [
       "ADB_MISSING",
+      "ADB_DOWNLOAD_FAILED",
+      "ADB_INSTALL_FAILED",
+      "ADB_INSTALL_UNSUPPORTED",
       "ADB_PATH_INVALID",
       "ADB_TIMEOUT",
       "ADB_FAILED",

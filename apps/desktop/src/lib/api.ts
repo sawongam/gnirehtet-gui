@@ -6,6 +6,7 @@ import type {
   CommandError,
   ConnectOptions,
   DeviceInfo,
+  DownloadProgress,
   Environment,
   LogEntry,
   RelayStatus,
@@ -14,6 +15,9 @@ import type {
 
 export const api = {
   checkAdb: () => invoke<AdbInfo>("check_adb"),
+  canInstallAdb: () => invoke<boolean>("can_install_adb"),
+  installAdb: () => invoke<AdbInfo>("install_adb"),
+  openAdbTerms: () => invoke<void>("open_adb_terms"),
   listDevices: () => invoke<DeviceInfo[]>("list_devices"),
   getSession: () => invoke<SessionSnapshot>("get_session"),
   connect: (serial: string, options: ConnectOptions) =>
@@ -32,6 +36,7 @@ export type Listeners = {
   onLog: (entry: LogEntry) => void;
   onRelayStatus: (status: RelayStatus) => void;
   onRelayClient: (event: ClientEvent) => void;
+  onAdbInstallProgress: (progress: DownloadProgress) => void;
 };
 
 export async function subscribe(listeners: Listeners): Promise<UnlistenFn> {
@@ -39,6 +44,7 @@ export async function subscribe(listeners: Listeners): Promise<UnlistenFn> {
     listen<LogEntry>("log", (e) => listeners.onLog(e.payload)),
     listen<RelayStatus>("relay-status", (e) => listeners.onRelayStatus(e.payload)),
     listen<ClientEvent>("relay-client", (e) => listeners.onRelayClient(e.payload)),
+    listen<DownloadProgress>("adb-install-progress", (e) => listeners.onAdbInstallProgress(e.payload)),
   ]);
   return () => unlisten.forEach((fn) => fn());
 }

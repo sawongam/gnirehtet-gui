@@ -2,8 +2,9 @@
 //!
 //! Each can be overridden with an environment variable (`ADB`,
 //! `GNIREHTET_BIN`, `GNIREHTET_APK`); otherwise the copies bundled with the
-//! app are used, and `adb` is looked up on `PATH` and in the usual Android
-//! SDK locations.
+//! app are used, and `adb` is looked up on `PATH`, in the usual Android SDK
+//! locations, and finally in the copy the app downloads itself
+//! (see `adb_install`).
 
 use std::env;
 use std::ffi::OsString;
@@ -16,18 +17,23 @@ pub struct ToolPaths {
     pub adb: PathBuf,
     pub relay: PathBuf,
     pub apk: PathBuf,
+    /// Where the app installs its own platform-tools, if it can.
+    pub tools_dir: Option<PathBuf>,
 }
 
 impl ToolPaths {
-    /// `resource_dir` is where Tauri installed bundled resources (the APK).
-    pub fn resolve(resource_dir: Option<&Path>) -> Self {
+    /// `resource_dir` is where Tauri installed bundled resources (the APK);
+    /// `data_dir` is the app's local data directory.
+    pub fn resolve(resource_dir: Option<&Path>, data_dir: Option<&Path>) -> Self {
         let exe_dir = env::current_exe()
             .ok()
             .and_then(|exe| exe.parent().map(Path::to_path_buf));
+        let tools_dir = data_dir.map(|dir| dir.join("platform-tools"));
         Self {
-            adb: resolve_adb(),
+            adb: resolve_adb(tools_dir.as_deref()),
             relay: resolve_relay(exe_dir.as_deref()),
             apk: resolve_apk(resource_dir),
+            tools_dir,
         }
     }
 }
@@ -38,7 +44,14 @@ fn env_path(name: &str) -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-fn resolve_adb() -> PathBuf {
+/// The adb inside a platform-tools directory.
+pub fn adb_in(tools_dir: &Path) -> PathBuf {
+    tools_dir.join(format!("adb{EXE_SUFFIX}"))
+}
+
+/// An adb the user already has wins over the one the app downloaded, so two
+/// adb versions never fight over the adb server.
+fn resolve_adb(tools_dir: Option<&Path>) -> PathBuf {
     if let Some(path) = env_path("ADB") {
         return path;
     }
@@ -48,7 +61,9 @@ fn resolve_adb() -> PathBuf {
     }
     sdk_dirs()
         .into_iter()
-        .map(|sdk| sdk.join("platform-tools").join(&name))
+        .map(|sdk| sdk.join("platform-tools"))
+        .chain(tools_dir.map(Path::to_path_buf))
+        .map(|dir| adb_in(&dir))
         .find(|candidate| candidate.is_file())
         .unwrap_or_else(|| PathBuf::from(name))
 }
