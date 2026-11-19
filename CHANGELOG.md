@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.0]
+
+### Added
+
+- **Install adb** button: when adb is missing, the app downloads Google's
+  platform-tools into its data folder with one click, with no admin rights or
+  `PATH` changes. It works on Windows, macOS and x86-64 Linux.
+
 ## [1.1.0]
 
 ### Added

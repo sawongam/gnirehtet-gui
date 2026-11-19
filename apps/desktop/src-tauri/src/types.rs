@@ -27,6 +27,14 @@ pub enum RelayState {
     Crashed,
 }
 
+/// Payload of the `adb-install-progress` event.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadProgress {
+    pub received: u64,
+    pub total: Option<u64>,
+}
+
 /// Payload of the `relay-status` event and of session commands.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
